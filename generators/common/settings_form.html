@@ -5,25 +5,26 @@
             <div class="card-header">{{ row[0] }}</div>
             <div class="card-body">
                 {% for field in row[1] %}
-                <div class="row m-1">
-                    <div class="col-5 text-end">
-                        {{ field.label }}
-                        <span class="help-button badge rounded-pill bg-primary" style="cursor: pointer;">?<div
-                                id="content" class="d-none">{{field.description | safe}}</div></span> :
+                <div class="row m-1 align-items-center">
+                    <div class="col-5 text-end pe-2">
+                        {{ field.label(class_="form-label") }}
+                        <span class="help-button badge rounded-pill bg-primary align-middle" style="cursor: pointer;">?
+                            <div id="content" class="d-none">{{ field.description | safe }}</div>
+                        </span> :
                     </div>
                     <div class="col-7">
                         {% if field.widget.input_type == 'checkbox' %}
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch d-inline-block">
                             {% if field.object_data %}
-                            {{ field(role_="switch", class_="form-check-input", checked_=field.object_data) }}
+                            {{ field(class_="form-check-input", role_="switch", checked_=field.object_data) }}
                             {% else %}
-                            {{ field(role_="switch", class_="form-check-input") }}
+                            {{ field(class_="form-check-input", role_="switch") }}
                             {% endif %}
                         </div>
                         {% elif field.type == 'SelectField' %}
                         {{ field(class_="form-select") }}
                         {% else %}
-                        {{ field() }}
+                        {{ field(class_="form-control") }}
                         {% endif %}
                     </div>
                 </div>

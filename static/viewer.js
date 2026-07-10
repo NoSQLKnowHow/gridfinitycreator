@@ -181,12 +181,19 @@ class GridfinityViewer {
 
     // Layout model onto the ground plane.
     // Rotate so the original vertical axis lies flat and keep the model above the grid.
+    // Reset transforms so bounding box is computed from a clean state
+    this.model.rotation.set(0, 0, 0);
+    this.model.position.set(0, 0, 0);
+    this.model.updateMatrixWorld(true);
+
+    // Rotate so the model lies flat (rotate X -90deg)
     this.model.rotation.x = -Math.PI / 2;
+    this.model.updateMatrixWorld(true);
 
     // Recompute bounds after rotation and raise the mesh so it sits on Y=0.
     const box = new THREE.Box3().setFromObject(this.model);
     const minY = box.min.y;
-    if (minY < 0) {
+    if (Number.isFinite(minY)) {
       this.model.position.y -= minY;
     }
   }
@@ -370,6 +377,12 @@ async function generatePreview(formId) {
   const formData = new FormData(formElement);
   formData.append('preview', 'true');
   formData.append(formId, 'Generate');
+  // Force preview generation to always produce STL regardless of exportFormat field
+  try {
+    formData.set('exportFormat', 'stl');
+  } catch (e) {
+    // ignore if set unsupported in some browsers
+  }
 
   try {
     console.log(`Generating preview for ${formId}...`);
