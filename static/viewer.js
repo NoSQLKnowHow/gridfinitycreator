@@ -166,10 +166,28 @@ class GridfinityViewer {
       this.model = new THREE.Mesh(geometry, material);
       this.scene.add(this.model);
 
+      this.alignModelFlat();
       this.fitCameraToModel();
       console.log('STL model loaded successfully');
     } catch (error) {
       console.error('Error parsing STL preview:', error);
+    }
+  }
+
+  alignModelFlat() {
+    if (!this.model) {
+      return;
+    }
+
+    // Layout model onto the ground plane.
+    // Rotate so the original vertical axis lies flat and keep the model above the grid.
+    this.model.rotation.x = -Math.PI / 2;
+
+    // Recompute bounds after rotation and raise the mesh so it sits on Y=0.
+    const box = new THREE.Box3().setFromObject(this.model);
+    const minY = box.min.y;
+    if (minY < 0) {
+      this.model.position.y -= minY;
     }
   }
 
