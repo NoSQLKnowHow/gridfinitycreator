@@ -79,18 +79,33 @@
               <span>3D Preview</span>
               <small class="text-muted ms-2">(drag to rotate, scroll to zoom)</small>
             </div>
-            <div id="viewer-{{form.id}}" style="width: 100%; height: 500px; background-color: #f8f9fa;"></div>
+            <div id="viewer-{{form.id}}" style="width: 100%; height: 500px; background-color: #f8f9fa; border: 1px solid #ddd;"></div>
           </div>
-          <script>
-            document.getElementById('{{ form.id }}').addEventListener('shown.bs.tab', function() {
-              initializeViewer('{{ form.id }}');
-              generatePreview('{{ form.id }}');
-            });
-          </script>
         </div>
       </div>
     </div>
     {% endfor %}
+  </div>
+
+  <script>
+    // Initialize viewers and preview generation for each tab
+    document.addEventListener('DOMContentLoaded', function() {
+      {% for form in forms %}
+      // Initialize viewer for {{ form.id }} when page loads
+      initializeViewer('{{ form.id }}');
+      
+      // Generate preview when tab is shown
+      document.querySelector('a[href="#{{ form.id }}"]').addEventListener('shown.bs.tab', function() {
+        generatePreview('{{ form.id }}');
+      });
+      
+      // Generate initial preview
+      setTimeout(function() {
+        generatePreview('{{ form.id }}');
+      }, 500);
+      {% endfor %}
+    });
+  </script>
   </div>
 
   {% include 'templates/settings_offcanvas.html.j2' %}
