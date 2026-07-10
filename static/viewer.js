@@ -105,7 +105,8 @@ class GridfinityViewer {
         const deltaX = e.clientX - this.previousMousePosition.x;
         const deltaY = e.clientY - this.previousMousePosition.y;
 
-        this.rotation.y += deltaX * 0.01;
+        // Invert horizontal rotation so moving mouse right rotates view right
+        this.rotation.y -= deltaX * 0.01;
         this.rotation.x += deltaY * 0.01;
 
         // Limit pitch
