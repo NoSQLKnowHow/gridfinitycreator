@@ -238,12 +238,24 @@
           const tabButton = document.querySelector(`[data-bs-toggle="tab"][href="#${formId}"]`);
           if (tabButton) {
             tabButton.addEventListener('shown.bs.tab', function() {
+              const viewer = viewers[formId];
+              if (viewer && typeof viewer.onWindowResize === 'function') {
+                viewer.onWindowResize();
+              }
               generatePreview(formId);
             });
           }
 
-          // Generate initial preview after a short delay
-          setTimeout(() => generatePreview(formId), 1000);
+          // Generate initial preview after a short delay if tab is visible
+          if (container.closest('.tab-pane.active')) {
+            setTimeout(() => {
+              const viewer = viewers[formId];
+              if (viewer && typeof viewer.onWindowResize === 'function') {
+                viewer.onWindowResize();
+              }
+              generatePreview(formId);
+            }, 100);
+          }
         } catch (e) {
           console.error(`Failed to initialize viewer for ${formId}:`, e);
         }

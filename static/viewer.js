@@ -38,8 +38,12 @@ class GridfinityViewer {
       this.scene.background = new THREE.Color(0xffffff);
 
       // Camera setup
-      const width = this.container.clientWidth;
-      const height = this.container.clientHeight;
+      let width = this.container.clientWidth || this.container.offsetWidth;
+      let height = this.container.clientHeight || this.container.offsetHeight;
+      if (width === 0 || height === 0) {
+        width = Math.max(1, this.container.offsetWidth || 600);
+        height = Math.max(1, this.container.offsetHeight || 400);
+      }
       console.log(`Viewer size: ${width}x${height}`);
       
       this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
@@ -292,8 +296,11 @@ class GridfinityViewer {
   }
 
   onWindowResize() {
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
+    let width = this.container.clientWidth || this.container.offsetWidth;
+    let height = this.container.clientHeight || this.container.offsetHeight;
+    if (width === 0 || height === 0) {
+      return;
+    }
 
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
