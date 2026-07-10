@@ -35,6 +35,18 @@ Now you can access the application by opening a browser and navigating to <ip-ad
 
 `http://192.168.1.100:5000/`
 
+## Portainer deployment
+
+If you want to deploy this app with Portainer, use the Git repository and a stack that points to the simplified compose file.
+
+- Repository URL: `https://github.com/NoSQLKnowHow/gridfinitycreator.git`
+- Repository reference: `feature/config-library` (or `main` for the main branch)
+- Compose path: `docker-compose.portainer.yml`
+
+This stack file avoids the missing `DATA_ROOT` environment problem and does not require an external `proxy` network.
+
+If your Portainer UI only shows a single repository reference field, use `https://github.com/NoSQLKnowHow/gridfinitycreator.git#feature/config-library`.
+
 ## Debug mode
 
 The deploy script results in the server running in production mode using the [Waitress WSGI server](https://flask.palletsprojects.com/en/2.2.x/deploying/waitress/). This is good for performance, but if you want to debug the code, start the server using the "./debug.sh" script instead of "./deploy.sh". This will make the server start itself using the built-in Flask server, which has convenient debugging features.

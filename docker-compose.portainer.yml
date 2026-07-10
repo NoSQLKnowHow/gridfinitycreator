@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  cadquery:
+    container_name: gridfinitycreator
+    build: ./
+    tmpfs:
+      - /tmpfiles
+    environment:
+      - TZ=Europe/Amsterdam
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=False
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - gridfinitycreator_logs:/logs
+
+volumes:
+  gridfinitycreator_logs:
