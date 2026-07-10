@@ -344,6 +344,7 @@ async function generatePreview(formId) {
 
   const formData = new FormData(formElement);
   formData.append('preview', 'true');
+  formData.append(formId, 'Generate');
 
   try {
     console.log(`Generating preview for ${formId}...`);
