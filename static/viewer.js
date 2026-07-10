@@ -148,20 +148,25 @@ class GridfinityViewer {
       this.scene.remove(this.model);
     }
 
-    // Parse STL
-    const geometry = this.parseSTL(arrayBuffer);
-    geometry.computeVertexNormals();
-    geometry.center();
+    if (!arrayBuffer || arrayBuffer.byteLength < 84) {
+      console.error('STL preview too small or invalid:', arrayBuffer && arrayBuffer.byteLength);
+      return;
+    }
 
-    // Create mesh
-    const material = new THREE.MeshPhongMaterial({ color: 0x2196f3, shininess: 100 });
-    this.model = new THREE.Mesh(geometry, material);
-    this.scene.add(this.model);
+    try {
+      const geometry = this.parseSTL(arrayBuffer);
+      geometry.computeVertexNormals();
+      geometry.center();
 
-    // Auto-fit camera
-    this.fitCameraToModel();
-    
-    console.log('STL model loaded successfully');
+      const material = new THREE.MeshPhongMaterial({ color: 0x2196f3, shininess: 100 });
+      this.model = new THREE.Mesh(geometry, material);
+      this.scene.add(this.model);
+
+      this.fitCameraToModel();
+      console.log('STL model loaded successfully');
+    } catch (error) {
+      console.error('Error parsing STL preview:', error);
+    }
   }
 
   parseSTL(arrayBuffer) {
@@ -182,7 +187,17 @@ class GridfinityViewer {
   }
 
   parseBinarySTL(view) {
+    const byteLength = view.byteLength;
+    if (byteLength < 84) {
+      throw new Error(`Binary STL too short for header: ${byteLength}`);
+    }
+
     const faces = view.getUint32(80, true);
+    const expectedLength = 84 + faces * 50;
+    if (byteLength < expectedLength) {
+      throw new Error(`Binary STL size mismatch: ${byteLength} bytes but expected ${expectedLength} for ${faces} faces`);
+    }
+
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const normals = [];
@@ -358,71 +373,3 @@ function debouncePreview(formId, delay = 500) {
 waitForThree(() => {
   console.log('Three.js loaded and ready');
 });
-
-/**
- * Initialize a viewer for a specific form
- */
-function initializeViewer(formId) {
-  const containerId = `viewer-${formId}`;
-  if (!document.getElementById(containerId)) {
-    console.warn(`Container ${containerId} not found`);
-    return;
-  }
-  
-  if (!viewers[formId]) {
-    viewers[formId] = new GridfinityViewer(containerId);
-  }
-  return viewers[formId];
-}
-
-/**
- * Generate and display preview for a form
- */
-async function generatePreview(formId) {
-  const viewer = viewers[formId];
-  if (!viewer) {
-    console.warn(`Viewer not initialized for ${formId}`);
-    return;
-  }
-
-  const formElement = document.getElementById(formId + '_form');
-  if (!formElement) {
-    console.warn(`Form ${formId}_form not found`);
-    return;
-  }
-
-  const formData = new FormData(formElement);
-  formData.append('preview', 'true');
-
-  try {
-    const response = await fetch('/', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (response.ok) {
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      viewer.loadSTL(arrayBuffer);
-    } else {
-      console.error('Preview generation failed:', response.status);
-    }
-  } catch (error) {
-    console.error('Preview generation error:', error);
-  }
-}
-
-/**
- * Debounce preview generation to avoid too many requests
- */
-function debouncePreview(formId, delay = 500) {
-  if (window.previewTimeouts) {
-    clearTimeout(window.previewTimeouts[formId]);
-  } else {
-    window.previewTimeouts = {};
-  }
-
-  window.previewTimeouts[formId] = setTimeout(() => {
-    generatePreview(formId);
-  }, delay);
-}
