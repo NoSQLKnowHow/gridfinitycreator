@@ -181,9 +181,13 @@ class GridfinityViewer {
   }
 
   isASCIISTL(arrayBuffer) {
-    const view = new Uint8Array(arrayBuffer);
-    const header = new TextDecoder().decode(view.slice(0, 5));
-    return header === 'solid';
+    const header = new TextDecoder().decode(new Uint8Array(arrayBuffer, 0, Math.min(5, arrayBuffer.byteLength)));
+    if (header.toLowerCase() !== 'solid') {
+      return false;
+    }
+
+    const textSample = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(arrayBuffer, 0, Math.min(2048, arrayBuffer.byteLength)));
+    return /facet\s+normal/i.test(textSample) && /vertex\s+/i.test(textSample);
   }
 
   parseBinarySTL(view) {
@@ -193,7 +197,14 @@ class GridfinityViewer {
     }
 
     const faces = view.getUint32(80, true);
+    if (!Number.isFinite(faces) || faces < 0 || faces > 2000000) {
+      throw new Error(`Binary STL face count invalid: ${faces}`);
+    }
+
     const expectedLength = 84 + faces * 50;
+    if (expectedLength > 200 * 1024 * 1024) {
+      throw new Error(`Binary STL expected size too large: ${expectedLength} bytes for ${faces} faces`);
+    }
     if (byteLength < expectedLength) {
       throw new Error(`Binary STL size mismatch: ${byteLength} bytes but expected ${expectedLength} for ${faces} faces`);
     }
@@ -343,11 +354,24 @@ async function generatePreview(formId) {
 
     if (response.ok) {
       const blob = await response.blob();
-      console.log(`Received preview data: ${blob.size} bytes`);
       const arrayBuffer = await blob.arrayBuffer();
+      const previewHeader = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(arrayBuffer, 0, Math.min(256, arrayBuffer.byteLength)));
+
+      if (/<\/?html|<!doctype|<body|<title|error|exception/i.test(previewHeader)) {
+        console.error('Preview response looks like HTML/error page:', previewHeader.slice(0, 256));
+        return;
+      }
+
+      if (arrayBuffer.byteLength < 84 && !/solid/i.test(previewHeader)) {
+        console.error('Preview response too small for STL:', arrayBuffer.byteLength, previewHeader.slice(0, 256));
+        return;
+      }
+
+      console.log(`Received preview data: ${blob.size} bytes, type=${blob.type}`);
       viewer.loadSTL(arrayBuffer);
     } else {
-      console.error('Preview generation failed:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Preview generation failed:', response.status, response.statusText, errorText.slice(0, 500));
     }
   } catch (error) {
     console.error('Preview generation error:', error);
