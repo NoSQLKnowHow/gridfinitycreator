@@ -87,27 +87,6 @@
     {% endfor %}
   </div>
 
-  <script>
-    // Initialize viewers and preview generation for each tab
-    document.addEventListener('DOMContentLoaded', function() {
-      {% for form in forms %}
-      // Initialize viewer for {{ form.id }} when page loads
-      initializeViewer('{{ form.id }}');
-      
-      // Generate preview when tab is shown
-      document.querySelector('a[href="#{{ form.id }}"]').addEventListener('shown.bs.tab', function() {
-        generatePreview('{{ form.id }}');
-      });
-      
-      // Generate initial preview
-      setTimeout(function() {
-        generatePreview('{{ form.id }}');
-      }, 500);
-      {% endfor %}
-    });
-  </script>
-  </div>
-
   {% include 'templates/settings_offcanvas.html.j2' %}
 </div>
 
@@ -237,6 +216,41 @@
         document.getElementById("gridSizeZ").value = "7.0";
         break;
     }
+  }
+
+  // Initialize 3D viewers for all forms
+  function initializeAllViewers() {
+    // Find all form tabs by looking for tab panes with viewer containers
+    const viewerContainers = document.querySelectorAll('[id^="viewer-"]');
+    
+    viewerContainers.forEach(container => {
+      const formId = container.id.replace('viewer-', '');
+      if (formId) {
+        try {
+          initializeViewer(formId);
+          
+          // Add listener for when tab is shown
+          const tabButton = document.querySelector(`a[href="#${formId}"]`);
+          if (tabButton) {
+            tabButton.addEventListener('shown.bs.tab', function() {
+              generatePreview(formId);
+            });
+          }
+          
+          // Generate initial preview after a short delay
+          setTimeout(() => generatePreview(formId), 1000);
+        } catch (e) {
+          console.error(`Failed to initialize viewer for ${formId}:`, e);
+        }
+      }
+    });
+  }
+
+  // Start initialization when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAllViewers);
+  } else {
+    initializeAllViewers();
   }
 </script>
 {% endblock %}
