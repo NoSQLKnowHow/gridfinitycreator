@@ -218,25 +218,30 @@
     }
   }
 
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
   // Initialize 3D viewers for all forms
   function initializeAllViewers() {
     // Find all form tabs by looking for tab panes with viewer containers
     const viewerContainers = document.querySelectorAll('[id^="viewer-"]');
-    
+
     viewerContainers.forEach(container => {
       const formId = container.id.replace('viewer-', '');
       if (formId) {
         try {
           initializeViewer(formId);
-          
+
           // Add listener for when tab is shown
-          const tabButton = document.querySelector(`a[href="#${formId}"]`);
+          const tabButton = document.querySelector(`[data-bs-toggle="tab"][href="#${formId}"]`);
           if (tabButton) {
             tabButton.addEventListener('shown.bs.tab', function() {
               generatePreview(formId);
             });
           }
-          
+
           // Generate initial preview after a short delay
           setTimeout(() => generatePreview(formId), 1000);
         } catch (e) {
