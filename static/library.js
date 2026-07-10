@@ -367,11 +367,23 @@ function libraryLoadAndClose(configId, formId) {
     gridfinityLib.loadConfig(configId, formId);
     bootstrap.Modal.getInstance(document.getElementById('library-load-modal')).hide();
     
-    // Switch to the form tab if not already visible
+    const formElement = document.getElementById(formId + '_form');
+    if (formElement) {
+      formElement.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // Switch to the form tab if not already visible and refresh preview
     const tab = document.querySelector(`[href="#${formId}"]`);
     if (tab) {
       const tabInstance = new bootstrap.Tab(tab);
+      const refreshPreview = () => {
+        generatePreview(formId);
+        tab.removeEventListener('shown.bs.tab', refreshPreview);
+      };
+      tab.addEventListener('shown.bs.tab', refreshPreview);
       tabInstance.show();
+    } else {
+      generatePreview(formId);
     }
   } catch (e) {
     alert('Error loading configuration: ' + e.message);
