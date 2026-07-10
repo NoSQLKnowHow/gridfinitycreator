@@ -106,8 +106,16 @@ def index_post():
         form_list.append(f)
         if gen.handles(request, f):
             # Generate an STL with the provided settings
-            logger.info("Generating {0} for: {1}".format(f.get_title(), request.remote_addr))
-            return gen.process(f, constants)
+            is_preview = 'preview' in request.form and request.form['preview'] == 'true'
+            logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))
+            response = gen.process(f, constants)
+            
+            # If this is a preview request, modify the response to return binary data instead of download
+            if is_preview:
+                response.headers['Content-Disposition'] = 'inline; filename="preview.stl"'
+                response.headers['Content-Type'] = 'application/octet-stream'
+            
+            return response
     
     response = make_response(render_index(form_list, constants, message))
     response.set_cookie('gridspec', str('{0},{1},{2}').format(constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM))

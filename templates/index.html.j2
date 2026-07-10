@@ -52,7 +52,7 @@
         </div>
       </div>
       <div class="row p-3">
-        <div class="col">
+        <div class="col-lg-6">
           <div class="card p-0">
             <div class="card-header text-white bg-primary d-flex justify-content-between align-items-center">
               <span>Settings</span>
@@ -66,12 +66,27 @@
               </div>
             </div>
             <div class="card-body">
-              <form method="post" id="{{form.id}}_form">
+              <form method="post" id="{{form.id}}_form" onchange="debouncePreview('{{form.id}}')">
                 {{ form.csrf_token() }}
                 {{ form.get_settings_html() | inner_render({"form":form}) }}
               </form>
             </div>
           </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card p-0">
+            <div class="card-header text-white bg-primary">
+              <span>3D Preview</span>
+              <small class="text-muted ms-2">(drag to rotate, scroll to zoom)</small>
+            </div>
+            <div id="viewer-{{form.id}}" style="width: 100%; height: 500px; background-color: #f8f9fa;"></div>
+          </div>
+          <script>
+            document.getElementById('{{ form.id }}').addEventListener('shown.bs.tab', function() {
+              initializeViewer('{{ form.id }}');
+              generatePreview('{{ form.id }}');
+            });
+          </script>
         </div>
       </div>
     </div>
