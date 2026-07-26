@@ -2,22 +2,29 @@
 
 {% block content %}
 
-<div class="container-fluid border mb-3" style="max-width: 70%;">
+<div class="container-fluid gfg-shell mb-3">
 
-  <div class="row bg-primary align-items-center" data-bs-theme="dark">
-    <div class="col">
-      <h1 class="text-center text-white p-2">Gridfinity Creator</h1>
+  <header class="gfg-hero">
+    <div>
+      <h1 class="gfg-logo mb-1">Gridfinity Creator</h1>
+      <p class="gfg-tagline mb-0">Design and generate custom Gridfinity bins &amp; baseplates — live 3D preview, STL &amp; STEP export.</p>
     </div>
-    <div class="col-auto text-end pe-3">
-      <button class="btn btn-light btn-sm me-2" type="button" onclick="showLibraryModal()" title="Manage saved configurations">
+    <div class="gfg-hero-actions">
+      <button class="gfg-chip theme-toggle" type="button" id="theme-toggle-btn" title="Toggle light / dark mode">
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.414a.5.5 0 1 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707L4.464 3.757a.5.5 0 0 1 0 .708"/></svg>
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792 0 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71a8.19 8.19 0 0 1 4.762-7.44.79.79 0 0 1 .81.05z"/><path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.73 1.73 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.73 1.73 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.73 1.73 0 0 0 1.097-1.097z"/></svg>
+      </button>
+      <button class="gfg-chip" type="button" onclick="showLibraryModal()" title="Manage saved configurations">
         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 12.5A1.5 1.5 0 0 1 2.5 11h3A1.5 1.5 0 0 1 7 12.5v3A1.5 1.5 0 0 1 5.5 17h-3A1.5 1.5 0 0 1 1 15.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 11h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/></svg>
       </button>
-      <button class="btn btn-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#settings"
-        aria-controls="settings">...</button>
+      <button class="gfg-chip" type="button" data-bs-toggle="offcanvas" data-bs-target="#settings"
+        aria-controls="settings" title="Grid settings">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/></svg>
+      </button>
     </div>
-  </div>
+  </header>
 
-  <div class="row mt-3">
+  <div class="row">
     <div class="col">
       <ul class="nav nav-tabs" role="tablist">
         <li class="nav-item" role="presentation">
@@ -32,8 +39,8 @@
     </div>
   </div>
 
-  <div class="tab-content border border-top-0 mb-3">
-    <div id="home" class="tab-pane active">
+  <div class="tab-content mb-3">
+    <div id="home" class="tab-pane fade show active">
       <div class="row p-3">
         <div class="col">
           {% include 'templates/front_page.html.j2' %}
@@ -42,7 +49,7 @@
     </div>
 
     {% for form in forms %}
-    <div id="{{ form.id }}" class="tab-pane">
+    <div id="{{ form.id }}" class="tab-pane fade">
       <div class="row p-3">
         <div class="col-9">
           {{ form.get_description()|safe }}
@@ -77,9 +84,9 @@
           <div class="card p-0">
             <div class="card-header text-white bg-primary">
               <span>3D Preview</span>
-              <small class="text-muted ms-2">(drag to rotate, scroll to zoom)</small>
+              <small class="gfg-header-subtext ms-2">(drag to rotate, scroll to zoom)</small>
             </div>
-            <div id="viewer-{{form.id}}" style="width: 100%; height: 500px; background-color: #f8f9fa; border: 1px solid #ddd;"></div>
+            <div id="viewer-{{form.id}}" class="viewer-container"></div>
           </div>
         </div>
       </div>

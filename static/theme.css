@@ -1,0 +1,520 @@
+/* ==========================================================================
+   Gridfinity Creator - modern theme layer
+   Sits on top of Bootswatch Flatly. Aurora gradient backdrop with a 42px
+   grid motif (Gridfinity's 42mm), glassmorphism shell, gradient-text hero,
+   pill navigation, shimmer accents, and full light/dark theming via
+   html[data-bs-theme].
+   ========================================================================== */
+
+:root {
+  --gfg-bg: #eef1f9;
+  --gfg-surface: #ffffff;
+  --gfg-surface-2: #f2f4fb;
+  --gfg-border: #e2e7f3;
+  --gfg-text: #171c30;
+  --gfg-text-muted: #66708f;
+  --gfg-accent: #4f46e5;
+  --gfg-accent-2: #06b6d4;
+  --gfg-accent-3: #ec4899;
+  --gfg-accent-rgb: 79, 70, 229;
+  --gfg-on-accent: #ffffff;
+  --gfg-grid-line: rgba(79, 70, 229, 0.055);
+  --gfg-blob-1: rgba(99, 102, 241, 0.20);
+  --gfg-blob-2: rgba(6, 182, 212, 0.16);
+  --gfg-blob-3: rgba(236, 72, 153, 0.12);
+  --gfg-glass: rgba(255, 255, 255, 0.72);
+  --gfg-shadow-sm: 0 1px 2px rgba(23, 28, 48, 0.05), 0 2px 8px rgba(23, 28, 48, 0.06);
+  --gfg-shadow-md: 0 12px 40px rgba(23, 28, 48, 0.12);
+  --gfg-radius: 1rem;
+  --gfg-radius-sm: 0.6rem;
+}
+
+/* Scoped to the html root specifically so locally-forced data-bs-theme
+   attributes deeper in the DOM can never flip the global palette. */
+html[data-bs-theme="dark"] {
+  --gfg-bg: #0a0e1c;
+  --gfg-surface: #131829;
+  --gfg-surface-2: #1a2136;
+  --gfg-border: #283252;
+  --gfg-text: #e8ebf7;
+  --gfg-text-muted: #97a1c2;
+  --gfg-accent: #818cf8;
+  --gfg-accent-2: #22d3ee;
+  --gfg-accent-3: #f472b6;
+  --gfg-accent-rgb: 129, 140, 248;
+  --gfg-on-accent: #ffffff;
+  --gfg-grid-line: rgba(129, 140, 248, 0.07);
+  --gfg-blob-1: rgba(99, 102, 241, 0.28);
+  --gfg-blob-2: rgba(6, 182, 212, 0.20);
+  --gfg-blob-3: rgba(236, 72, 153, 0.14);
+  --gfg-glass: rgba(19, 24, 41, 0.72);
+  --gfg-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --gfg-shadow-md: 0 14px 44px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Base                                                                    */
+/* ---------------------------------------------------------------------- */
+
+html {
+  color-scheme: light;
+}
+
+html[data-bs-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--gfg-bg);
+  color: var(--gfg-text);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: var(--gfg-accent);
+}
+
+/* Aurora blobs - fixed behind everything, slowly drifting */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(42rem 30rem at 15% 12%, var(--gfg-blob-1), transparent 62%),
+    radial-gradient(46rem 32rem at 85% 8%, var(--gfg-blob-2), transparent 62%),
+    radial-gradient(48rem 36rem at 50% 105%, var(--gfg-blob-3), transparent 62%);
+  animation: gfg-aurora 26s ease-in-out infinite alternate;
+}
+
+@keyframes gfg-aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2.5%, 1.5%, 0) scale(1.06); }
+  100% { transform: translate3d(-2%, -1%, 0) scale(1.02); }
+}
+
+/* 42px grid motif - a nod to Gridfinity's 42mm unit */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--gfg-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--gfg-grid-line) 1px, transparent 1px);
+  background-size: 42px 42px;
+  -webkit-mask-image: radial-gradient(90rem 60rem at 50% 0%, black 30%, transparent 78%);
+  mask-image: radial-gradient(90rem 60rem at 50% 0%, black 30%, transparent 78%);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gfg-text-muted) 40%, transparent);
+  border-radius: 999px;
+  border: 2px solid var(--gfg-bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--gfg-text-muted) 65%, transparent);
+}
+
+::selection {
+  background-color: rgba(var(--gfg-accent-rgb), 0.35);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Glass shell (main page panel)                                          */
+/* ---------------------------------------------------------------------- */
+
+.gfg-shell {
+  max-width: min(1440px, 94%);
+  background: var(--gfg-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid var(--gfg-border);
+  border-radius: calc(var(--gfg-radius) * 1.4);
+  box-shadow: var(--gfg-shadow-md);
+  padding: 0.5rem 1.5rem 1.5rem;
+  margin-top: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Thin animated gradient strip across the top of the shell */
+.gfg-shell::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gfg-accent), var(--gfg-accent-2), var(--gfg-accent-3), var(--gfg-accent));
+  background-size: 300% 100%;
+  animation: gfg-strip 10s linear infinite;
+}
+
+@keyframes gfg-strip {
+  to { background-position: 300% 0; }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Hero header                                                            */
+/* ---------------------------------------------------------------------- */
+
+.gfg-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.75rem 0.5rem 1rem;
+}
+
+.gfg-logo {
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  background: linear-gradient(100deg, var(--gfg-accent) 10%, var(--gfg-accent-2) 55%, var(--gfg-accent-3) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--gfg-accent); /* fallback */
+}
+
+.gfg-tagline {
+  color: var(--gfg-text-muted);
+  font-size: 0.95rem;
+  max-width: 40rem;
+}
+
+.gfg-hero-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Glass icon chips (theme toggle, library, settings) */
+.gfg-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--gfg-border);
+  background: color-mix(in srgb, var(--gfg-surface) 70%, transparent);
+  color: var(--gfg-text);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.gfg-chip:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--gfg-accent-rgb), 0.6);
+  color: var(--gfg-accent);
+  box-shadow: 0 6px 18px rgba(var(--gfg-accent-rgb), 0.25);
+}
+
+.gfg-chip:active {
+  transform: translateY(0);
+}
+
+/* Theme toggle icon swap */
+.theme-toggle .icon-moon {
+  display: none;
+}
+
+html[data-bs-theme="dark"] .theme-toggle .icon-sun {
+  display: none;
+}
+
+html[data-bs-theme="dark"] .theme-toggle .icon-moon {
+  display: inline-block;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Pill navigation                                                        */
+/* ---------------------------------------------------------------------- */
+
+.nav-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  background: color-mix(in srgb, var(--gfg-surface-2) 80%, transparent);
+  border: 1px solid var(--gfg-border);
+  border-radius: 999px;
+  padding: 0.3rem;
+  margin-bottom: 1.25rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.nav-tabs .nav-item {
+  margin: 0;
+}
+
+.nav-tabs .nav-link {
+  border: none;
+  margin: 0;
+  border-radius: 999px;
+  padding: 0.5rem 1.15rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--gfg-text-muted);
+  background: transparent;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  color: var(--gfg-text);
+  border: none;
+}
+
+.nav-tabs .nav-link.active {
+  border: none;
+  color: #fff;
+  background: linear-gradient(110deg, var(--gfg-accent), var(--gfg-accent-2));
+  box-shadow: 0 4px 14px rgba(var(--gfg-accent-rgb), 0.4);
+}
+
+/* Crossfade + rise on tab switch */
+.tab-pane.fade {
+  transition: opacity 0.25s ease;
+}
+
+@keyframes gfg-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tab-pane.active .card {
+  animation: gfg-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.tab-pane.active .col-lg-6:nth-child(2) > .card {
+  animation-delay: 0.08s;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Cards                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.card {
+  background-color: var(--gfg-surface);
+  border: 1px solid var(--gfg-border);
+  border-radius: var(--gfg-radius);
+  box-shadow: var(--gfg-shadow-sm);
+  overflow: hidden;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--gfg-shadow-md);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--gfg-accent) 30%, var(--gfg-border));
+}
+
+.card-header {
+  background-color: var(--gfg-surface-2);
+  border-bottom: 1px solid var(--gfg-border);
+  font-weight: 600;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.card-header.bg-primary {
+  background: linear-gradient(110deg, var(--gfg-accent) 0%, var(--gfg-accent-2) 100%) !important;
+  border-bottom: none;
+}
+
+/* Save / Load buttons inside gradient card headers */
+.card-header.bg-primary .btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.card-header.bg-primary .btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+.gfg-header-subtext {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Sample / description images */
+.tab-pane .img-fluid.rounded {
+  border-radius: var(--gfg-radius) !important;
+  box-shadow: var(--gfg-shadow-md);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Buttons                                                                 */
+/* ---------------------------------------------------------------------- */
+
+.btn {
+  border-radius: var(--gfg-radius-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: linear-gradient(110deg, var(--gfg-accent), var(--gfg-accent-2));
+  border: none;
+  color: var(--gfg-on-accent);
+  font-weight: 600;
+  padding-left: 1.4rem;
+  padding-right: 1.4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  filter: brightness(1.08);
+  box-shadow: 0 8px 22px rgba(var(--gfg-accent-rgb), 0.4);
+  color: var(--gfg-on-accent);
+}
+
+/* Shimmer sweep on hover */
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.4) 50%, transparent 60%);
+  transform: translateX(-130%);
+}
+
+.btn-primary:hover::after {
+  transform: translateX(130%);
+  transition: transform 0.6s ease;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Help badges                                                            */
+/* ---------------------------------------------------------------------- */
+
+.help-button.bg-primary {
+  background: linear-gradient(110deg, var(--gfg-accent), var(--gfg-accent-2)) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.help-button.bg-primary:hover {
+  transform: scale(1.18);
+  box-shadow: 0 3px 10px rgba(var(--gfg-accent-rgb), 0.4);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Forms                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.form-control,
+.form-select {
+  background-color: color-mix(in srgb, var(--gfg-surface-2) 65%, transparent);
+  border: 1px solid var(--gfg-border);
+  border-radius: var(--gfg-radius-sm);
+  color: var(--gfg-text);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--gfg-accent);
+  box-shadow: 0 0 0 0.2rem rgba(var(--gfg-accent-rgb), 0.22);
+  background-color: var(--gfg-surface);
+  color: var(--gfg-text);
+}
+
+.form-check-input:checked {
+  background-color: var(--gfg-accent);
+  border-color: var(--gfg-accent);
+}
+
+.form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(var(--gfg-accent-rgb), 0.22);
+}
+
+/* ---------------------------------------------------------------------- */
+/* 3D viewer                                                               */
+/* ---------------------------------------------------------------------- */
+
+.viewer-container {
+  width: 100%;
+  height: 500px;
+  background-color: var(--gfg-surface-2);
+  border-radius: 0 0 var(--gfg-radius) var(--gfg-radius);
+  transition: background-color 0.3s ease;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Offcanvas / modals                                                      */
+/* ---------------------------------------------------------------------- */
+
+.offcanvas,
+.modal-content {
+  background: color-mix(in srgb, var(--gfg-surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  color: var(--gfg-text);
+}
+
+.modal-content {
+  border: 1px solid var(--gfg-border);
+  border-radius: var(--gfg-radius);
+  box-shadow: var(--gfg-shadow-md);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Misc                                                                    */
+/* ---------------------------------------------------------------------- */
+
+.tab-content {
+  border: none !important;
+}
+
+.alert {
+  border: none;
+  border-radius: var(--gfg-radius);
+  box-shadow: var(--gfg-shadow-sm);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Reduced motion                                                          */
+/* ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  .gfg-shell::before {
+    animation: none;
+  }
+
+  .tab-pane.active .card {
+    animation: none;
+  }
+
+  .btn-primary:hover::after {
+    transition: none;
+  }
+}

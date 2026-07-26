@@ -3,6 +3,17 @@
  * Uses Three.js to display STL models with camera controls
  */
 
+// Colors the 3D viewer uses per theme - kept in sync with the CSS custom
+// properties in static/theme.css, but Three.js needs actual hex values.
+const GFG_VIEWER_THEME_COLORS = {
+  light: { background: 0xf2f4fb, gridMain: 0x4f46e5, gridSub: 0xd4daf0 },
+  dark: { background: 0x1a2136, gridMain: 0x818cf8, gridSub: 0x353f61 },
+};
+
+function gfgViewerTheme() {
+  return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+}
+
 // Wait for Three.js to load
 function waitForThree(callback, attempts = 0) {
   if (typeof THREE !== 'undefined') {
@@ -27,17 +38,19 @@ class GridfinityViewer {
     this.renderer = null;
     this.controls = null;
     this.model = null;
+    this.gridHelper = null;
     this.orbitTarget = new THREE.Vector3(0, 0, 0);
     this.orbitDistance = 200;
     console.log(`Initializing viewer for ${containerId}`);
     this.init();
+
+    document.addEventListener('gfg-theme-change', () => this.applyTheme());
   }
 
   init() {
     try {
       // Scene setup
       this.scene = new THREE.Scene();
-      this.scene.background = new THREE.Color(0xffffff);
 
       // Camera setup
       let width = this.container.clientWidth || this.container.offsetWidth;
@@ -65,8 +78,8 @@ class GridfinityViewer {
       directionalLight.position.set(100, 100, 100);
       this.scene.add(directionalLight);
 
-      // Grid
-      this.addGrid();
+      // Background and grid, matching the current light/dark theme
+      this.applyTheme();
 
       // Camera controls
       this.setupControls();
@@ -83,12 +96,23 @@ class GridfinityViewer {
     }
   }
 
-  addGrid() {
-    const size = 300;
-    const divisions = 10;
-    const gridHelper = new THREE.GridHelper(size, divisions, 0x5588dd, 0x8bb0e8);
-    gridHelper.position.y = 0;
-    this.scene.add(gridHelper);
+  applyTheme() {
+    if (!this.scene) return;
+
+    const colors = GFG_VIEWER_THEME_COLORS[gfgViewerTheme()];
+    this.scene.background = new THREE.Color(colors.background);
+
+    // GridHelper bakes both line colors into its vertex colors at construction
+    // time, so the only way to re-theme it is to rebuild it.
+    if (this.gridHelper) {
+      this.scene.remove(this.gridHelper);
+      this.gridHelper.geometry.dispose();
+      this.gridHelper.material.dispose();
+    }
+
+    this.gridHelper = new THREE.GridHelper(300, 10, colors.gridMain, colors.gridSub);
+    this.gridHelper.position.y = 0;
+    this.scene.add(this.gridHelper);
   }
 
   setupControls() {
