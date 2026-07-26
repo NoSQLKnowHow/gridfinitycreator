@@ -5,27 +5,32 @@
             <div class="card-header">{{ row[0] }}</div>
             <div class="card-body">
                 {% for field in row[1] %}
-                <div class="row m-1">
-                    <div class="col-5 text-end">
-                        {{ field.label }}
-                        <span class="help-button badge rounded-pill bg-primary" style="cursor: pointer;">?<div
-                                id="content" class="d-none">{{field.description | safe}}</div></span> :
-                    </div>
-                    <div class="col-7">
-                        {% if field.widget.input_type == 'checkbox' %}
-                        <div class="form-check form-switch">
+                <div class="mb-2">
+                    {% if field.widget.input_type == 'checkbox' %}
+                    <div class="d-flex align-items-center gap-1">
+                        <div class="form-check form-switch mb-0">
                             {% if field.object_data %}
                             {{ field(role_="switch", class_="form-check-input", checked_=field.object_data) }}
                             {% else %}
                             {{ field(role_="switch", class_="form-check-input") }}
                             {% endif %}
+                            {{ field.label(class_="form-check-label") }}
                         </div>
-                        {% elif field.type == 'SelectField' %}
-                            {{ field(class_="form-select") }}
-                        {% else %}
-                            {{ field(onchange_=field.onChangedCallback) }}
-                        {% endif %}
+                        <span class="help-button badge rounded-pill bg-primary" style="cursor: pointer;">?<div
+                                id="content" class="d-none">{{field.description | safe}}</div></span>
                     </div>
+                    {% else %}
+                    <div class="d-flex align-items-center gap-1 mb-1">
+                        {{ field.label(class_="form-label mb-0") }}
+                        <span class="help-button badge rounded-pill bg-primary" style="cursor: pointer;">?<div
+                                id="content" class="d-none">{{field.description | safe}}</div></span>
+                    </div>
+                    {% if field.type == 'SelectField' %}
+                        {{ field(class_="form-select") }}
+                    {% else %}
+                        {{ field(class_="form-control", onchange_=field.onChangedCallback) }}
+                    {% endif %}
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
