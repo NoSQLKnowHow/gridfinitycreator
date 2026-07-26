@@ -33,7 +33,9 @@ def process(form, constants):
         g = constants
     
     # Construct the names for the temporary and downloaded file
-    filename = "/tmpfiles/" + str(uuid.uuid4()) + "." + form.exportFormat.data
+    tmp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'tmpfiles')
+    os.makedirs(tmp_dir, exist_ok=True)
+    filename = os.path.join(tmp_dir, str(uuid.uuid4()) + "." + form.exportFormat.data)
 
     # Generate the STL file
     gen = generator.Generator(s, g)

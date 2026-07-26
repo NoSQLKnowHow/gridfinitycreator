@@ -143,6 +143,124 @@ class Generator:
             
         return result
     
+    def divider_walls(self, basePlane):
+        """Create a regularly spaced grid of internal divider walls"""
+
+        resultPlane = basePlane.center(self.grid.WALL_THICKNESS, self.grid.WALL_THICKNESS)
+        result = resultPlane.workplane()
+
+        # basePlane sits at the top of the (thin) light-bin floor, whereas compartmentSizeZ
+        # is derived assuming the standard FLOOR_THICKNESS. Stretch the divider height by the
+        # difference so it still reaches the top of the interior wall (below the stacking lip),
+        # while its untranslated bottom face rests flush on the floor.
+        dividerHeight = self.compartmentSizeZ + self.grid.FLOOR_THICKNESS - self.grid.LIGHT_FLOOR_THICKNESS
+
+        # The light floor is perforated with a weight-saving cutout per grid unit, so a divider
+        # can span straight across a cutout and float with nothing beneath it. Every divider
+        # gets a support plug filling the floor's own thickness below it (base top to floor
+        # top) - this is always safe to add unconditionally, since the light floor tiles butt
+        # up against each other seamlessly at every grid-unit seam, so this slice is solid
+        # everywhere along a divider's length regardless of where it falls.
+        upperSupportHeight = self.grid.LIGHT_FLOOR_THICKNESS
+
+        # Below that, the base itself is mostly hollow (solid only right at the bottom and
+        # around its outer taper), and adjacent units don't touch each other down there at all.
+        # A deeper plug is needed to reach the bin's true bottom face and close the remaining
+        # gap, but it must be clipped to wherever the base actually has material at z=0, or it
+        # will bridge straight through the gaps between units and poke out past the bin's own
+        # contour. Extrude the base's own bottom faces upward to build that footprint.
+        lowerSupportHeight = self.baseTopZ
+        footprintSolids = [
+            cq.Solid.extrudeLinear(face, cq.Vector(0, 0, lowerSupportHeight))
+            for face in self.baseBottomFaces
+        ]
+        footprint = cq.Workplane("XY").newObject(footprintSolids)
+
+        if self.settings.compartmentsX > 1:
+            for x in range(self.settings.compartmentsX - 1):
+                xPos = (x + 1) * self.compartmentSizeX
+
+                divider = (
+                    resultPlane.box(
+                        self.settings.dividerThickness,
+                        self.internalSizeY,
+                        dividerHeight,
+                        centered=(True, False, False),
+                        combine=False,
+                    )
+                    .translate((xPos, 0, 0))
+                )
+                result.add(divider)
+
+                upperSupport = (
+                    resultPlane.box(
+                        self.settings.dividerThickness,
+                        self.internalSizeY,
+                        upperSupportHeight,
+                        centered=(True, False, False),
+                        combine=False,
+                    )
+                    .translate((xPos, 0, -upperSupportHeight))
+                )
+                result.add(upperSupport)
+
+                lowerSupport = (
+                    resultPlane.box(
+                        self.settings.dividerThickness,
+                        self.internalSizeY,
+                        lowerSupportHeight,
+                        centered=(True, False, False),
+                        combine=False,
+                    )
+                    .translate((xPos, 0, -upperSupportHeight - lowerSupportHeight))
+                )
+                result.add(lowerSupport.intersect(footprint))
+
+        if self.settings.compartmentsY > 1:
+            for y in range(self.settings.compartmentsY - 1):
+                yPos = (y + 1) * self.compartmentSizeY
+
+                divider = (
+                    resultPlane.box(
+                        self.internalSizeX,
+                        self.settings.dividerThickness,
+                        dividerHeight,
+                        centered=(False, True, False),
+                        combine=False,
+                    )
+                    .translate((0, yPos, 0))
+                )
+                result.add(divider)
+
+                upperSupport = (
+                    resultPlane.box(
+                        self.internalSizeX,
+                        self.settings.dividerThickness,
+                        upperSupportHeight,
+                        centered=(False, True, False),
+                        combine=False,
+                    )
+                    .translate((0, yPos, -upperSupportHeight))
+                )
+                result.add(upperSupport)
+
+                lowerSupport = (
+                    resultPlane.box(
+                        self.internalSizeX,
+                        self.settings.dividerThickness,
+                        lowerSupportHeight,
+                        centered=(False, True, False),
+                        combine=False,
+                    )
+                    .translate((0, yPos, -upperSupportHeight - lowerSupportHeight))
+                )
+                result.add(lowerSupport.intersect(footprint))
+
+        if self.settings.compartmentsX > 1 and self.settings.compartmentsY > 1:
+            result = result.combine()
+
+        return result
+
     def label_tab(self, basePlane):
         """Construct the pickup/label tab"""
 
@@ -187,8 +305,19 @@ class Generator:
         # Add the base of Gridfinity profiles
         result = self.grid_base(cq.Workplane("XY"))
 
+        # Remember the base's own bottom-facing faces (the only spots that actually touch the
+        # bin's true bottom at z=0 - the rest of the base is hollow, and adjacent units don't
+        # touch each other there). Divider support plugs are clipped to these later so they
+        # only ever fill in where solid material genuinely reaches the bottom.
+        self.baseBottomFaces = result.faces("<Z").vals()
+
         # Continue from the top of the base
         plane = result.faces(">Z").workplane()
+
+        # Remember how tall the base itself is (its top face height above the bin's true
+        # bottom at z=0) so divider support plugs can be sized to reach all the way down to
+        # solid material without any guesswork or duplicated magic numbers.
+        self.baseTopZ = plane.plane.origin.z
 
         # Add the floor of the bin
         result.add(self.brick_floor(plane))
@@ -196,6 +325,9 @@ class Generator:
         # Add the outer walls
         plane = result.faces(">Z").workplane()
         result.add(self.outer_wall(plane))
+
+        # Add the divider walls
+        result.add(self.divider_walls(plane))
 
         # Add the grabbing/label tab
         if self.settings.addLabelRidge:

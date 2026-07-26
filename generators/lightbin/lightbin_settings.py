@@ -9,6 +9,7 @@ class Settings:
 
     compartmentsX: int = 1 # The number of compartments in the X (width) direction 
     compartmentsY: int = 1 # The number of compartments in the Y (length) direction 
+    dividerThickness: float = 1.5 # Thickness of internal divider walls
 
     addStackingLip: bool = True  # Add a stacking lip (True) or not (False)?
     addLabelRidge:  bool = True  # Add a ridge to pick up the bin and attach a label

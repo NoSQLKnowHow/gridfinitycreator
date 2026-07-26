@@ -27,6 +27,8 @@ class GridfinityViewer {
     this.renderer = null;
     this.controls = null;
     this.model = null;
+    this.orbitTarget = new THREE.Vector3(0, 0, 0);
+    this.orbitDistance = 200;
     console.log(`Initializing viewer for ${containerId}`);
     this.init();
   }
@@ -93,7 +95,7 @@ class GridfinityViewer {
     // Simple orbit controls using mouse events
     this.isDragging = false;
     this.previousMousePosition = { x: 0, y: 0 };
-    this.rotation = { x: 0, y: 0 };
+    this.rotation = { x: Math.PI / 6, y: Math.PI / 4 };
 
     this.renderer.domElement.addEventListener('mousedown', (e) => {
       this.isDragging = true;
@@ -129,22 +131,21 @@ class GridfinityViewer {
     this.renderer.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomSpeed = 0.1;
-      const direction = this.camera.position.clone().normalize();
-      const distance = this.camera.position.length();
-      const newDistance = distance + (e.deltaY > 0 ? zoomSpeed * 10 : -zoomSpeed * 10);
+      const newDistance = this.orbitDistance + (e.deltaY > 0 ? zoomSpeed * 10 : -zoomSpeed * 10);
 
       if (newDistance > 50 && newDistance < 500) {
-        this.camera.position.copy(direction.multiplyScalar(newDistance));
+        this.orbitDistance = newDistance;
+        this.updateCameraPosition();
       }
     }, { passive: false });
   }
 
   updateCameraPosition() {
-    const distance = 200;
-    this.camera.position.x = distance * Math.sin(this.rotation.y) * Math.cos(this.rotation.x);
-    this.camera.position.y = distance * Math.sin(this.rotation.x);
-    this.camera.position.z = distance * Math.cos(this.rotation.y) * Math.cos(this.rotation.x);
-    this.camera.lookAt(0, 0, 0);
+    const distance = this.orbitDistance;
+    this.camera.position.x = this.orbitTarget.x + distance * Math.sin(this.rotation.y) * Math.cos(this.rotation.x);
+    this.camera.position.y = this.orbitTarget.y + distance * Math.sin(this.rotation.x);
+    this.camera.position.z = this.orbitTarget.z + distance * Math.cos(this.rotation.y) * Math.cos(this.rotation.x);
+    this.camera.lookAt(this.orbitTarget);
   }
 
   loadSTL(arrayBuffer) {
@@ -316,9 +317,12 @@ class GridfinityViewer {
 
     cameraZ *= 1.5;
 
-    this.camera.position.z = cameraZ;
-    this.camera.lookAt(center);
-    this.scene.position.copy(center).multiplyScalar(-1);
+    // Keep the scene (and grid) fixed in world space - the model already rests on Y=0
+    // via alignModelFlat(). Orbit around the model's actual center/distance instead of a
+    // separate, disconnected set of values, so dragging never "snaps" the view.
+    this.orbitTarget.copy(center);
+    this.orbitDistance = cameraZ;
+    this.updateCameraPosition();
   }
 
   onWindowResize() {

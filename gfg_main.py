@@ -188,13 +188,19 @@ if __name__ == "__main__":
     console.addFilter(serverFilter())
     root.addHandler(console)
 
-    # Ensure log directory exists
-    log_dir = '/logs'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # Ensure log directory exists in a writable location
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    default_log_dir = os.path.join(base_dir, 'logs')
+    log_dir = os.environ.get('GFG_LOG_DIR', default_log_dir)
+
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except OSError:
+        log_dir = os.path.join('/tmp', 'gridfinitycreator-logs')
+        os.makedirs(log_dir, exist_ok=True)
 
     # Configure rotating file logger
-    fh = logging.handlers.RotatingFileHandler('/logs/access.log', maxBytes=1000000, backupCount=10)
+    fh = logging.handlers.RotatingFileHandler(os.path.join(log_dir, 'access.log'), maxBytes=1000000, backupCount=10)
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
     fh.setFormatter(formatter)
