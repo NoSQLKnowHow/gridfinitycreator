@@ -1,3 +1,4 @@
+import datetime
 import importlib
 import logging
 import logging.handlers
@@ -41,7 +42,9 @@ def render_index(form_list, constants, message):
     jinja_env.filters["inner_render"] = inner_render
 
     index_template = jinja_env.get_template("templates/index.html.j2")
-    return index_template.render(version=__version__, forms=form_list, message=message, gridsize_x=constants.GRID_UNIT_SIZE_X_MM,
+    # Resolved per request so the copyright never goes stale
+    return index_template.render(version=__version__, forms=form_list, message=message, year=datetime.date.today().year,
+                            gridsize_x=constants.GRID_UNIT_SIZE_X_MM,
                             gridsize_y=constants.GRID_UNIT_SIZE_Y_MM, gridsize_z=constants.HEIGHT_UNITSIZE_MM)
 
 # Handle GET requests for "/"
