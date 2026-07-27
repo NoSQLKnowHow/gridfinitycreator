@@ -6,8 +6,8 @@
 // Colors the 3D viewer uses per theme - kept in sync with the CSS custom
 // properties in static/theme.css, but Three.js needs actual hex values.
 const GFG_VIEWER_THEME_COLORS = {
-  light: { background: 0xf2f4fb, gridMain: 0x4f46e5, gridSub: 0xd4daf0 },
-  dark: { background: 0x1a2136, gridMain: 0x818cf8, gridSub: 0x353f61 },
+  light: { background: 0xf2f4fb, gridMain: 0x4f46e5, gridSub: 0xd4daf0, edge: 0x0b3d91 },
+  dark: { background: 0x1a2136, gridMain: 0x818cf8, gridSub: 0x353f61, edge: 0x0a1024 },
 };
 
 function gfgViewerTheme() {
@@ -70,13 +70,22 @@ class GridfinityViewer {
       this.renderer.setPixelRatio(window.devicePixelRatio);
       this.container.appendChild(this.renderer.domElement);
 
-      // Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-      this.scene.add(ambientLight);
+      // Lighting. Keep the ambient term low - a high ambient washes out the
+      // shading differences that make recesses readable - and light from
+      // several directions so the model stays legible at any orbit angle.
+      this.scene.add(new THREE.AmbientLight(0xffffff, 0.42));
 
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(100, 100, 100);
-      this.scene.add(directionalLight);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      keyLight.position.set(120, 200, 120);
+      this.scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.32);
+      fillLight.position.set(-150, 90, -110);
+      this.scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.22);
+      rimLight.position.set(0, -130, 70);
+      this.scene.add(rimLight);
 
       // Background and grid, matching the current light/dark theme
       this.applyTheme();
@@ -113,6 +122,10 @@ class GridfinityViewer {
     this.gridHelper = new THREE.GridHelper(300, 10, colors.gridMain, colors.gridSub);
     this.gridHelper.position.y = 0;
     this.scene.add(this.gridHelper);
+
+    if (this.edgeLines) {
+      this.edgeLines.material.color.setHex(colors.edge);
+    }
   }
 
   setupControls() {
@@ -173,9 +186,17 @@ class GridfinityViewer {
   }
 
   loadSTL(arrayBuffer) {
-    // Remove existing model
+    // Remove existing model, releasing its GPU buffers (previews regenerate on
+    // every settings change, so leaking these adds up quickly)
     if (this.model) {
       this.scene.remove(this.model);
+      this.model.geometry.dispose();
+      this.model.material.dispose();
+      if (this.edgeLines) {
+        this.edgeLines.geometry.dispose();
+        this.edgeLines.material.dispose();
+        this.edgeLines = null;
+      }
     }
 
     if (!arrayBuffer || arrayBuffer.byteLength < 84) {
@@ -190,6 +211,17 @@ class GridfinityViewer {
 
       const material = new THREE.MeshPhongMaterial({ color: 0x2196f3, shininess: 100 });
       this.model = new THREE.Mesh(geometry, material);
+
+      // Outline the model's sharp feature edges. A flat-bottomed recess (square
+      // or hexagonal hole, weight pocket, ...) has the same surface normal as
+      // the face it was cut into, so lighting alone renders it nearly invisible.
+      // Drawing the feature edges makes every cut read clearly at any angle.
+      this.edgeLines = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geometry, 25),
+        new THREE.LineBasicMaterial({ color: GFG_VIEWER_THEME_COLORS[gfgViewerTheme()].edge })
+      );
+      this.model.add(this.edgeLines);
+
       this.scene.add(this.model);
 
       this.alignModelFlat();
@@ -388,9 +420,47 @@ function initializeViewer(formId) {
 }
 
 /**
+ * Fetch and render the real-world dimensions readout for a form
+ */
+async function updateDimensions(formId) {
+  const panel = document.getElementById(`dimensions-${formId}`);
+  const formElement = document.getElementById(formId + '_form');
+  if (!panel || !formElement) return;
+
+  const formData = new FormData(formElement);
+  formData.append('dimensions', 'true');
+  formData.append(formId, 'Generate');
+
+  try {
+    const response = await fetch('/', { method: 'POST', body: formData });
+    if (!response.ok) return;
+
+    const sections = await response.json();
+    if (!Array.isArray(sections)) return;
+
+    panel.innerHTML = sections.map(section => `
+      <div class="gfg-dims-section">
+        <div class="gfg-dims-title">${escapeHtml(section.title)}</div>
+        ${section.rows.map(([label, value]) => `
+          <div class="gfg-dims-row">
+            <span class="gfg-dims-label">${escapeHtml(label)}</span>
+            <span class="gfg-dims-value">${escapeHtml(value)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  } catch (e) {
+    console.warn('Dimensions update failed:', e);
+  }
+}
+
+/**
  * Generate and display preview for a form
  */
 async function generatePreview(formId) {
+  // Refresh the dimensions readout alongside the preview (cheap, not awaited)
+  updateDimensions(formId);
+
   const viewer = viewers[formId];
   if (!viewer) {
     console.warn(`Viewer not initialized for ${formId}`);

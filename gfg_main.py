@@ -7,7 +7,7 @@ import waitress
 
 from contextlib import contextmanager
 
-from flask import Flask, make_response, request
+from flask import Flask, jsonify, make_response, request
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -105,6 +105,11 @@ def index_post():
         f = gen.get_form()
         form_list.append(f)
         if gen.handles(request, f):
+            # Dimensions-only request: return the computed real-world dimensions
+            # as JSON without generating any geometry (cheap - arithmetic only)
+            if request.form.get('dimensions') == 'true' and hasattr(gen, 'dimensions'):
+                return jsonify(gen.dimensions(f, constants))
+
             # Generate an STL with the provided settings
             is_preview = 'preview' in request.form and request.form['preview'] == 'true'
             logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))

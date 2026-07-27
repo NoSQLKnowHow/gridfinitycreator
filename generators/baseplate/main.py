@@ -11,13 +11,25 @@ import logging
 
 logger = logging.getLogger('BPG')
 
-def process(form, constants):
+def make_settings(form):
     # Copy the settings from the form
     s = settings.Settings()
-    
-    # Copy the settings from the form
     s.sizeUnitsX = form.sizeUnitsX.data
     s.sizeUnitsY = form.sizeUnitsY.data
+    s.baseStyle = form.baseStyle.data
+    s.baseThickness = float(form.baseThickness.data)
+    s.addMagnetHoles = form.addMagnetHoles.data
+    s.magnetHoleDiameter = float(form.magnetHoleDiameter.data)
+    s.addScrewHoles = form.addScrewHoles.data
+    return s
+
+def dimensions(form, constants):
+    g = constants if constants else grid_constants.Grid()
+    gen = generator.Generator(make_settings(form), g)
+    return gen.get_dimensions()
+
+def process(form, constants):
+    s = make_settings(form)
 
     # Default grid (Gridfinity)
     if not constants:

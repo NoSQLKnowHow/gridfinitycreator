@@ -5,6 +5,8 @@ import math
 from holeybin_settings import HoleShape
 
 from generators.common.bin_base import bin_base
+from generators.common.export import export_model
+from generators.common import dimensions as dims
 
 class Generator:
     def __init__(self, settings, grid) -> None:
@@ -125,8 +127,20 @@ class Generator:
 
         return result
 
+    def get_dimensions(self):
+        """Real-world dimensions for the readout panel"""
+        return [
+            dims.bin_outer_section(self),
+            {"title": "Holes", "rows": [
+                ["Hole grid", f"{self.settings.numHolesX} × {self.settings.numHolesY}"],
+                ["Hole size", dims.mm(self.settings.holeSize)],
+                ["Hole depth", dims.mm(self.settings.holeDepth)],
+                ["Hole spacing", dims.mm(self.settings.keepoutDiameter)],
+            ]},
+        ]
+
     def generate_stl(self, filename):
         model = self.generate_model()
-        exporters.export(model, filename)
+        export_model(model, filename)
 
 

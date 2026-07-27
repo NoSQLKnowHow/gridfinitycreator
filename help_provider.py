@@ -43,3 +43,7 @@ def get_holey_keepout_help():
 def get_holey_gridspec_help():
     with open(os.path.dirname(__file__) + '/help_files/holey_numholes_help.html', 'r') as reader:
         return reader.read()
+
+def get_baseplate_style_help():
+    with open(os.path.dirname(__file__) + '/help_files/baseplate_style_help.html', 'r') as reader:
+        return reader.read()

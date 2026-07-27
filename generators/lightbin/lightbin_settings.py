@@ -17,3 +17,6 @@ class Settings:
 
     labelRidgeWidth:  int = 13   
     wallThickness: int = 1.5
+
+    # JSON list of removed divider-wall segments (see classicbin_settings)
+    removedWalls: str = ""

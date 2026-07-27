@@ -15,7 +15,7 @@ class Form(FlaskForm):
     magnetHoleDiameter = DecimalField("Magnet-hole diameter", default = 6.5, places = 2)
     addRemovalHoles = BooleanField("Magnet removal holes", default="False")
     addScrewHoles   = BooleanField("Screw holes", default="False")
-    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP')])
+    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

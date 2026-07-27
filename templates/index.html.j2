@@ -50,12 +50,21 @@
 
     {% for form in forms %}
     <div id="{{ form.id }}" class="tab-pane fade">
-      <div class="row p-3">
-        <div class="col-9">
-          {{ form.get_description()|safe }}
-        </div>
-        <div class="col">
-          <img src="/static/{{form.id}}_sample.jpg" class="img-fluid rounded mx-auto d-block" />
+      <div class="px-3 pt-3">
+        <button class="gfg-about-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#about-{{form.id}}"
+          aria-expanded="false" aria-controls="about-{{form.id}}">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/></svg>
+          About this generator
+        </button>
+      </div>
+      <div id="about-{{form.id}}" class="collapse">
+        <div class="row px-3 pb-3 pt-2">
+          <div class="col-9">
+            {{ form.get_description()|safe }}
+          </div>
+          <div class="col">
+            <img src="/static/{{form.id}}_sample.jpg" class="img-fluid rounded mx-auto d-block" />
+          </div>
         </div>
       </div>
       <div class="row p-3">
@@ -64,6 +73,9 @@
             <div class="card-header text-white bg-primary d-flex justify-content-between align-items-center">
               <span>Settings</span>
               <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-light" onclick="shareConfigLink('{{form.id}}', this)" title="Copy a shareable link to this configuration">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5zm-8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm11 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg> Share
+                </button>
                 <button type="button" class="btn btn-light" onclick="showSaveModal('{{form.id}}')" title="Save this configuration to library">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v4a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2a1 1 0 0 0-1-1H.5zm9 4a1 1 0 0 1 1-1h2V1H9v4z"/></svg> Save
                 </button>
@@ -79,6 +91,12 @@
               </form>
             </div>
           </div>
+          <div class="card p-0 mt-3">
+            <div class="card-header">Real dimensions</div>
+            <div class="card-body py-2 gfg-dims" id="dimensions-{{form.id}}">
+              <span class="text-muted">Dimensions appear when the preview updates.</span>
+            </div>
+          </div>
         </div>
         <div class="col-lg-6">
           <div class="card p-0">
@@ -88,6 +106,16 @@
             </div>
             <div id="viewer-{{form.id}}" class="viewer-container"></div>
           </div>
+          {% if form.has_layout_editor is defined and form.has_layout_editor() %}
+          <div class="card p-0 mt-3">
+            <div class="card-header">Compartment layout</div>
+            <div class="card-body">
+              <p class="text-muted small mb-2">Click a wall segment to remove it and merge cells into a bigger
+                compartment. Click again to restore it.</p>
+              <div id="layout-editor-{{form.id}}" class="gfg-layout-editor"></div>
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>

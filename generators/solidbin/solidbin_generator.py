@@ -3,6 +3,8 @@ from cadquery import exporters
 from grid_constants import *
 
 from generators.common.bin_base import bin_base
+from generators.common.export import export_model
+from generators.common import dimensions as dims
 
 class Generator:
     def __init__(self, settings, grid) -> None:
@@ -81,8 +83,15 @@ class Generator:
 
         return result
 
+    def get_dimensions(self):
+        """Real-world dimensions for the readout panel"""
+        return [
+            dims.bin_outer_section(self),
+            {"title": "Interior", "rows": [["Solid block", "no interior - carve your own"]]},
+        ]
+
     def generate_stl(self, filename):
         model = self.generate_model()
-        exporters.export(model, filename)
+        export_model(model, filename)
 
 

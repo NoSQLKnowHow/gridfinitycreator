@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import IntegerField, DecimalField, SelectField, BooleanField
+from wtforms import IntegerField, DecimalField, SelectField, BooleanField, HiddenField
 from wtforms.widgets import NumberInput
 from grid_constants import *
 
@@ -22,7 +22,8 @@ class Form(FlaskForm):
     addGrabCurve    = BooleanField("Scoop ramp", default="true", false_values=(False, "false", ""))
     addLabelRidge   = BooleanField("Add label tab(s)", default="true", false_values=(False, "false", ""))
     multiLabel      = BooleanField("Label tab per row", false_values=(False, "false", ""))
-    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP')])
+    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
+    removedWalls    = HiddenField(default="")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,6 +41,9 @@ class Form(FlaskForm):
         self.addLabelRidge.description = help.get_labeltab_help()
         self.multiLabel.description = help.get_labeltab_help()
         self.exportFormat.description = help.get_exportformat_help()
+
+    def has_layout_editor(self):
+        return True
 
     def get_rows(self):
         return [

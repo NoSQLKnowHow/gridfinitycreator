@@ -22,3 +22,8 @@ class Settings:
     exportFormat: str = "stl"
     labelRidgeWidth:  int = 13   
     dividerThickness: int = 1.5
+
+    # JSON list of removed divider-wall segments, e.g. [["v",1,0],["h",0,1]].
+    # "v",i,j = wall between column i-1 and i, at row j. "h",i,j = wall between
+    # row j-1 and j, at column i. Empty string = full uniform grid.
+    removedWalls: str = ""

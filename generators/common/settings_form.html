@@ -41,6 +41,9 @@
     {{ loop.cycle('', '<div class="w-100"></div>')|safe }}
     {% endfor %}
 </div>
+{% if form.has_layout_editor is defined and form.has_layout_editor() %}
+{{ form.removedWalls() }}
+{% endif %}
 <div class="row justify-content-center">
     <div class="col text-center">
         <button type="submit" id="{{form.id}}_button" name="{{form.id}}" class="btn btn-primary"> <!-- onclick="onClick{{form.id}}()"> -->

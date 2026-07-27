@@ -448,6 +448,105 @@ function libraryImport() {
 }
 
 /**
+ * Shareable configuration URLs
+ * Encodes a form's settings into a URL query string so a configuration can be
+ * shared as a plain link - no accounts or server-side storage involved.
+ */
+
+/**
+ * Encode config data as a URL-safe base64 string
+ */
+function encodeConfigForUrl(data) {
+  const json = JSON.stringify(data);
+  // btoa only handles latin1; round-trip through encodeURIComponent for safety
+  return btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+/**
+ * Decode config data from a URL-safe base64 string
+ */
+function decodeConfigFromUrl(str) {
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  return JSON.parse(decodeURIComponent(escape(atob(b64))));
+}
+
+/**
+ * Build a shareable link for the current form settings and copy it
+ * to the clipboard.
+ * @param {string} formId - The form ID (e.g. 'classicbin')
+ * @param {HTMLElement} btn - The button that was clicked (for feedback)
+ */
+function shareConfigLink(formId, btn) {
+  const formElement = document.getElementById(formId + '_form');
+  if (!formElement) {
+    console.warn(`Form ${formId}_form not found`);
+    return;
+  }
+
+  const data = gridfinityLib.captureFormData(formElement);
+  const url = `${location.origin}${location.pathname}?gen=${encodeURIComponent(formId)}&cfg=${encodeConfigForUrl(data)}`;
+
+  const showCopied = () => {
+    if (btn) {
+      const original = btn.innerHTML;
+      btn.innerHTML = 'Copied!';
+      setTimeout(() => { btn.innerHTML = original; }, 1500);
+    }
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(showCopied).catch(() => prompt('Copy this link:', url));
+  } else {
+    prompt('Copy this link:', url);
+  }
+}
+
+/**
+ * On page load: if the URL carries a shared configuration, populate the
+ * matching form, switch to its tab, and let the tab-shown handler refresh
+ * the 3D preview.
+ */
+function applySharedConfigFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const formId = params.get('gen');
+  const cfg = params.get('cfg');
+  if (!formId || !cfg) return;
+
+  // formId is user-controlled input used in selectors - restrict it strictly
+  if (!/^[a-zA-Z0-9_-]+$/.test(formId)) return;
+
+  const formElement = document.getElementById(formId + '_form');
+  if (!formElement) {
+    console.warn(`Shared config references unknown generator: ${formId}`);
+    return;
+  }
+
+  let data;
+  try {
+    data = decodeConfigFromUrl(cfg);
+  } catch (e) {
+    console.error('Could not decode shared configuration:', e);
+    return;
+  }
+
+  gridfinityLib.populateFormData(formElement, data);
+
+  // Switching the tab triggers the existing shown.bs.tab handler,
+  // which resizes the viewer and regenerates the preview.
+  const tab = document.querySelector(`[data-bs-toggle="tab"][href="#${formId}"]`);
+  if (tab) {
+    new bootstrap.Tab(tab).show();
+  }
+}
+
+// Run after the full page (including viewer initialization) is ready
+window.addEventListener('load', applySharedConfigFromUrl);
+
+/**
  * Utility to escape HTML
  */
 function escapeHtml(text) {
