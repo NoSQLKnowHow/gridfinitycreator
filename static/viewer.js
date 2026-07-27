@@ -466,24 +466,37 @@ function isPreviewEnabled() {
   }
 }
 
-function setPreviewEnabled(enabled) {
+/**
+ * Record that the preview is now on and sync every tab's toggle. Called for
+ * any activation route - the toggle, a click, or a hover - so the switch always
+ * reflects the actual state of the viewer.
+ */
+function markPreviewEnabled() {
   try {
-    localStorage.setItem(GFG_PREVIEW_STORAGE_KEY, enabled ? 'on' : 'off');
+    localStorage.setItem(GFG_PREVIEW_STORAGE_KEY, 'on');
   } catch (e) {
     // Storage may be unavailable; the preference just won't persist
   }
+  document.querySelectorAll('.preview-toggle-input').forEach(cb => { cb.checked = true; });
+}
 
-  // Keep every tab's toggle in sync - the setting is global
-  document.querySelectorAll('.preview-toggle-input').forEach(cb => { cb.checked = enabled; });
-
+function setPreviewEnabled(enabled) {
   if (enabled) {
+    markPreviewEnabled();
     const active = document.querySelector('.tab-pane.active .viewer-container');
     if (active) {
       activateViewer(active.id.replace('viewer-', ''));
     }
-  } else {
-    Object.keys(viewers).forEach(teardownViewer);
+    return;
   }
+
+  try {
+    localStorage.setItem(GFG_PREVIEW_STORAGE_KEY, 'off');
+  } catch (e) {
+    // Storage may be unavailable; the preference just won't persist
+  }
+  document.querySelectorAll('.preview-toggle-input').forEach(cb => { cb.checked = false; });
+  Object.keys(viewers).forEach(teardownViewer);
 }
 
 /**
@@ -520,6 +533,10 @@ function activateViewer(formId) {
     }
     viewers[formId] = viewer;
   }
+
+  // However the preview got loaded - toggle, click or hover - it is on now,
+  // so keep the stored setting and every tab's switch in step with reality
+  markPreviewEnabled();
 
   viewers[formId].resume();
   viewers[formId].onWindowResize();

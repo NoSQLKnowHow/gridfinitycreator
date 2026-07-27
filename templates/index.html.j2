@@ -307,7 +307,7 @@
           hoverTimer = setTimeout(() => {
             hoverTimer = null;
             if (!viewers[formId]) activateViewer(formId);
-          }, 150);
+          }, 500);
         });
         container.addEventListener('mouseleave', () => {
           if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
