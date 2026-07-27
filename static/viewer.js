@@ -97,6 +97,7 @@ class GridfinityViewer {
       window.addEventListener('resize', () => this.onWindowResize());
 
       // Start render loop
+      this.running = true;
       this.animate();
       
       console.log(`Viewer initialized successfully for ${this.container.id}`);
@@ -394,13 +395,153 @@ class GridfinityViewer {
   }
 
   animate() {
+    // The render loop is the viewer's real cost - bail out entirely when
+    // paused/disposed rather than scheduling another frame
+    if (!this.running) return;
     requestAnimationFrame(() => this.animate());
     this.renderer.render(this.scene, this.camera);
+  }
+
+  pause() {
+    this.running = false;
+  }
+
+  resume() {
+    if (this.running || !this.renderer) return;
+    this.running = true;
+    this.animate();
+  }
+
+  /** Release the WebGL context and all GPU resources */
+  dispose() {
+    this.running = false;
+
+    if (this.model) {
+      this.model.geometry.dispose();
+      this.model.material.dispose();
+      this.scene.remove(this.model);
+      this.model = null;
+    }
+    if (this.edgeLines) {
+      this.edgeLines.geometry.dispose();
+      this.edgeLines.material.dispose();
+      this.edgeLines = null;
+    }
+    if (this.gridHelper) {
+      this.gridHelper.geometry.dispose();
+      this.gridHelper.material.dispose();
+      this.gridHelper = null;
+    }
+    if (this.renderer) {
+      this.renderer.dispose();
+      const canvas = this.renderer.domElement;
+      if (canvas && canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
+      this.renderer = null;
+    }
+    this.scene = null;
   }
 }
 
 // Global viewers indexed by form ID
 const viewers = {};
+
+/**
+ * 3D preview enable/disable.
+ *
+ * The preview is OFF by default: each viewer holds a WebGL context and runs a
+ * requestAnimationFrame loop, which is a real cost on lower-powered machines.
+ * Nothing is created until the user opts in - either with the toggle in the
+ * preview card header, or simply by hovering the preview area, which loads
+ * that one viewer on demand.
+ */
+const GFG_PREVIEW_STORAGE_KEY = 'gfg-3d-preview';
+
+function isPreviewEnabled() {
+  try {
+    return localStorage.getItem(GFG_PREVIEW_STORAGE_KEY) === 'on';
+  } catch (e) {
+    return false;
+  }
+}
+
+function setPreviewEnabled(enabled) {
+  try {
+    localStorage.setItem(GFG_PREVIEW_STORAGE_KEY, enabled ? 'on' : 'off');
+  } catch (e) {
+    // Storage may be unavailable; the preference just won't persist
+  }
+
+  // Keep every tab's toggle in sync - the setting is global
+  document.querySelectorAll('.preview-toggle-input').forEach(cb => { cb.checked = enabled; });
+
+  if (enabled) {
+    const active = document.querySelector('.tab-pane.active .viewer-container');
+    if (active) {
+      activateViewer(active.id.replace('viewer-', ''));
+    }
+  } else {
+    Object.keys(viewers).forEach(teardownViewer);
+  }
+}
+
+/**
+ * Placeholder state: 'idle' (invitation to load), 'loading' (spinner - the
+ * model takes a few seconds to build, so this is what tells the user their
+ * hover/click registered) or 'hidden' (model is on screen).
+ */
+function setPlaceholderState(formId, state) {
+  const placeholder = document.getElementById(`viewer-placeholder-${formId}`);
+  if (!placeholder) return;
+  placeholder.style.display = state === 'hidden' ? 'none' : '';
+  placeholder.classList.toggle('loading', state === 'loading');
+}
+
+function setPlaceholderVisible(formId, visible) {
+  setPlaceholderState(formId, visible ? 'idle' : 'hidden');
+}
+
+/** Create (if needed) and render the viewer for one form */
+function activateViewer(formId) {
+  const container = document.getElementById(`viewer-${formId}`);
+  if (!container) return null;
+
+  if (!viewers[formId]) {
+    // Keep the placeholder up, showing a spinner, until the model actually
+    // arrives - hiding it right away leaves a blank panel that reads as
+    // "nothing happened" while the geometry is still being generated.
+    setPlaceholderState(formId, 'loading');
+    const viewer = new GridfinityViewer(`viewer-${formId}`);
+    if (!viewer.renderer) {
+      // WebGL unavailable or init failed - put the invitation back
+      setPlaceholderState(formId, 'idle');
+      return null;
+    }
+    viewers[formId] = viewer;
+  }
+
+  viewers[formId].resume();
+  viewers[formId].onWindowResize();
+  generatePreview(formId);
+  return viewers[formId];
+}
+
+/** Tear a viewer down, freeing its WebGL context */
+function teardownViewer(formId) {
+  const viewer = viewers[formId];
+  if (!viewer) return;
+  viewer.dispose();
+  delete viewers[formId];
+  setPlaceholderVisible(formId, true);
+}
+
+/** Pause every viewer except the given one (only one tab is ever visible) */
+function pauseHiddenViewers(exceptFormId) {
+  Object.keys(viewers).forEach(id => {
+    if (id !== exceptFormId) viewers[id].pause();
+  });
+}
 
 /**
  * Initialize a viewer for a specific form
@@ -461,11 +602,11 @@ async function generatePreview(formId) {
   // Refresh the dimensions readout alongside the preview (cheap, not awaited)
   updateDimensions(formId);
 
+  // With the preview off there is nothing to draw into - skip the STL request
+  // entirely so neither the browser nor the server does the work. The
+  // dimensions readout above still refreshes.
   const viewer = viewers[formId];
-  if (!viewer) {
-    console.warn(`Viewer not initialized for ${formId}`);
-    return;
-  }
+  if (!viewer) return;
 
   const formElement = document.getElementById(formId + '_form');
   if (!formElement) {
@@ -513,6 +654,10 @@ async function generatePreview(formId) {
     }
   } catch (error) {
     console.error('Preview generation error:', error);
+  } finally {
+    // Reveal the model once it is actually on screen; if nothing loaded, put
+    // the invitation back so the user can retry rather than face a blank panel
+    setPlaceholderState(formId, viewer.model ? 'hidden' : 'idle');
   }
 }
 
