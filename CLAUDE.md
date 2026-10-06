@@ -8,7 +8,7 @@ Web app that dynamically generates STL/STEP files for Gridfinity-compatible 3D-p
 
 ## Commands
 
-Deployment is Docker-based. Tests run directly: `pip install -r requirements-dev.txt && pytest` (needs CadQuery; ~25 s).
+Deployment is Docker-based. Tests run directly: `pip install cadquery==2.8.0 -r requirements-dev.txt && pytest` (needs CadQuery; about a minute; also runs `tests/js` if Node is installed). CI also builds the image, tests inside it and smoke-tests the hardened container (`tools/smoke_test.py`).
 
 - `./build.sh` — build the Docker image (tagged `cadquery`)
 - `./deploy.sh` — production deployment via Waitress (`docker-compose --env-file ./.env.container up`)

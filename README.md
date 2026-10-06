@@ -39,6 +39,8 @@ Notes:
 - `./deploy.sh` builds the image itself; `./build.sh` is only needed if you want to build the image without starting it.
 - The compose file attaches the container to an external docker network called `proxy` (used by the reverse proxy set-up below). `./deploy.sh` creates that network if it does not exist yet.
 - Logs are kept in `./data/gridfinitycreator/logs`. To keep them elsewhere, set `DATA_ROOT` in `.env.container`.
+- Your local settings live in `.env.container`, which `./deploy.sh` creates from `.env.container.template` on a first start. It is not kept in git, so it is yours to edit. (If you update an existing checkout that still tracked it, move your copy aside before `git pull` and put it back after.)
+- The server runs as an ordinary user (uid 1000), so the log directory has to be writable by that user. `./deploy.sh` creates it for you, owned by you; if your user is not uid 1000 it tells you how to hand the directory over. If the server cannot write there it still starts, and logs to a temporary directory (lost when the container is) with a warning in `docker logs`.
 - The scripts use `docker compose` (the Compose plugin) when it is installed and fall back to the older `docker-compose`.
 
 ### Configuration
@@ -63,9 +65,13 @@ Everything has a default that works for a small private network, so none of this
 
 If you expose an instance to the internet, lower the limits (`GFG_MAX_QUEUE`, `GFG_QUEUE_TIMEOUT`, `GFG_BUILD_TIMEOUT` and the three `GFG_MAX_*` limits) so one visitor cannot keep the server busy for long.
 
+### Security
+
+The container runs as an ordinary user (uid 1000) on a read-only filesystem with no extra privileges and no Linux capabilities. It writes only to two size-limited RAM disks (`/tmpfiles` for the generated files and `/tmp`) and to the `/logs` volume. The compose files set this up, and CI starts the image exactly like that and uses it.
+
 ### Resource needs
 
-Models are built in separate processes so that the web page stays responsive while they are being generated. An idle instance uses roughly 1 GB of memory (the web server and a warm copy of CadQuery that new builds start from); each model being built at the same time needs a few hundred MB more, more for the largest ones. Allow about 2 GB for the default settings, and fewer concurrent builds (`GFG_MAX_JOBS`) on a smaller machine. A normal bin takes about a second to build; the largest allowed ones take about a minute.
+Models are built in separate processes so that the web page stays responsive while they are being generated. An idle instance uses roughly 1 GB of memory (the web server and a warm copy of CadQuery that new builds start from); each model being built at the same time needs a few hundred MB more, more for the largest ones. Allow about 2 GB for the default settings, and fewer concurrent builds (`GFG_MAX_JOBS`) on a smaller machine. The compose files cap the container at 3 GB; set `GFG_MEM_LIMIT` (for example `GFG_MEM_LIMIT=4g` in `.env.container`) to change that. A normal bin takes about a second to build; the largest allowed ones take about a minute.
 
 ## Portainer deployment
 
@@ -77,6 +83,10 @@ If you want to deploy this app with Portainer, use the Git repository and a stac
 
 This stack file needs no environment file and no external `proxy` network.
 
+The server runs as uid 1000, so the `gridfinitycreator_logs` volume has to belong to that user. A volume created fresh starts out that way. One created by an earlier version of the image (which ran as root) belongs to root; the server then logs to a temporary directory instead and says so in the container's log. To hand the volume over:
+
+`docker run --rm -v gridfinitycreator_logs:/logs alpine chown -R 1000:1000 /logs`
+
 If your Portainer UI only shows a single repository reference field, use `https://github.com/NoSQLKnowHow/gridfinitycreator.git#feature/config-library`.
 
 ## Debug mode
@@ -87,7 +97,11 @@ The debug server includes an interactive debugger that can run code on the machi
 
 ## Development
 
-Run the tests with `pip install -r requirements-dev.txt` followed by `pytest`. They drive the real application, including real CadQuery geometry, so CadQuery must be installed; the whole suite takes under half a minute.
+Run the tests with `pip install cadquery==2.8.0 -r requirements-dev.txt` followed by `pytest`. They drive the real application, including real CadQuery geometry, so CadQuery must be installed (the version the image uses); the whole suite takes about a minute. If Node.js is installed they also run the unit tests of the browser-side scripts (`tests/js`).
+
+Dependencies are pinned to the versions the tests run against (`requirements.txt`; CadQuery in the `Dockerfile`, where conda installs it, and in `.github/workflows/ci.yml`; a test checks that they agree). Dependabot proposes updates to the pins, the base image and the CI actions.
+
+CI (`.github/workflows/ci.yml`) lints for real bugs (`ruff.toml`), runs the tests, then builds the image, runs the tests inside it, starts it hardened as described above and uses it (`tools/smoke_test.py`, which you can also point at any running instance: `python tools/smoke_test.py http://host:5000`).
 
 ## Reverse proxy
 
