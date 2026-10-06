@@ -12,12 +12,12 @@ import waitress
 from flask import Flask, jsonify, make_response, request
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from werkzeug.exceptions import HTTPException
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 import grid_constants
 import gridspec
 import job_limiter
 import model_builder
+import proxy_trust
 from generator_loader import load_generators
 from generators.common import settings_form
 from generators.common.errors import SettingsError
@@ -42,10 +42,9 @@ app.config['SECRET_KEY'] = secret_key()
 # only ever made a page that had been left open fail to submit
 app.config['WTF_CSRF_TIME_LIMIT'] = None
 
-# Apply proxy fix
-app.wsgi_app = ProxyFix(
-    app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
-)
+# X-Forwarded-* headers are believed only from the proxies named in GFG_TRUSTED_PROXIES (see proxy_trust.py)
+trusted_proxies = proxy_trust.parse_proxies(os.environ.get('GFG_TRUSTED_PROXIES'))
+app.wsgi_app = proxy_trust.ProxyTrust(app.wsgi_app, trusted_proxies, proxy_trust.parse_hops(os.environ.get('GFG_PROXY_HOPS')))
 
 # Globals
 generators = []
@@ -389,4 +388,4 @@ if __name__ == "__main__":
         app.run(debug=True, host=host, port=port)
     else:
         logger.info("Started in production mode, listening on %s:%s", host, port)
-        waitress.serve(app, host=host, port=port, **job_limiter.server_options(limiter))
+        waitress.serve(app, host=host, port=port, **job_limiter.server_options(limiter), **proxy_trust.server_options(trusted_proxies))
