@@ -5,6 +5,9 @@ from grid_constants import *
 import logging
 
 from generators.common.bin_base import bin_base
+from generators.common.export import export_model
+from generators.common import dimensions as dims
+from generators.common import layout
 
 logger = logging.getLogger('CBG')
 
@@ -60,25 +63,39 @@ class Generator:
             
         return result
 
+    def parse_removed_walls(self):
+        """Parse the removedWalls setting into a set of ('v'|'h', i, j) tuples"""
+        return layout.parse_removed_walls(self.settings)
+
     def divider_walls(self, basePlane):
-        """Create a regularly spaced grid of internal divider walls"""
-        
+        """Create the internal divider walls. Walls are built per cell-edge
+           segment so individual segments can be removed to merge cells into
+           larger compartments (see the layout editor in the UI)."""
+
+        removed = self.parse_removed_walls()
+
         resultPlane = basePlane.center(self.grid.WALL_THICKNESS, self.grid.WALL_THICKNESS)
         result = resultPlane.workplane()
-        
-        if(self.settings.compartmentsX > 1):
-            for x in range(self.settings.compartmentsX-1):
-                result.add(resultPlane.box(self.settings.dividerThickness,self.internalSizeY, self.compartmentSizeZ,
-                        centered=(True, False,False), combine=False).translate(((x+1)*self.compartmentSizeX, 0, 0)))
 
-        if(self.settings.compartmentsY > 1):
-            for y in range(self.settings.compartmentsY-1):
-                result.add(resultPlane.box(self.internalSizeX,self.settings.dividerThickness,self.compartmentSizeZ, 
-                        centered=(False, True, False), combine=False).translate((0, (y+1)*self.compartmentSizeY, 0)))
+        # Vertical walls (between columns), one segment per row
+        for i in range(1, self.settings.compartmentsX):
+            for j in range(self.settings.compartmentsY):
+                if ('v', i, j) in removed:
+                    continue
+                result.add(
+                    resultPlane.box(self.settings.dividerThickness, self.compartmentSizeY, self.compartmentSizeZ,
+                        centered=(True, False, False), combine=False)
+                    .translate((i*self.compartmentSizeX, j*self.compartmentSizeY, 0)))
 
-        # Combining fails when there is no overlap between the objects, which is the case when there are 0 dividers in one direction
-        if(self.settings.compartmentsX > 1 and self.settings.compartmentsY > 1):
-            result = result.combine()
+        # Horizontal walls (between rows), one segment per column
+        for j in range(1, self.settings.compartmentsY):
+            for i in range(self.settings.compartmentsX):
+                if ('h', i, j) in removed:
+                    continue
+                result.add(
+                    resultPlane.box(self.compartmentSizeX, self.settings.dividerThickness, self.compartmentSizeZ,
+                        centered=(False, True, False), combine=False)
+                    .translate((i*self.compartmentSizeX, j*self.compartmentSizeY, 0)))
 
         return result
 
@@ -87,10 +104,18 @@ class Generator:
 
         result = basePlane.workplane()
 
+        removed = self.parse_removed_walls()
         numRidges = self.settings.compartmentsY if self.settings.multiLabel else 1
         labelRidgeHeight = min(self.compartmentSizeZ, self.settings.labelRidgeWidth-self.grid.CHAMFER_EPSILON)
 
         for x in range(numRidges):
+            # Ridge x sits at the boundary between rows x-1 and x (x=0 leans on
+            # the front outer wall). If the layout editor removed any wall
+            # segment at that boundary, the rows are merged - skip the ridge so
+            # the merged compartment only gets the one label at its front.
+            if x > 0 and any(('h', i, x) in removed for i in range(self.settings.compartmentsX)):
+                continue
+
             startX = self.grid.WALL_THICKNESS + x*self.compartmentSizeY
             result.add(
                 basePlane.sketch()
@@ -107,24 +132,81 @@ class Generator:
             
         return result
 
+    def cells_with_scoop(self, removed):
+        """Decide which cells get a grab-ramp, as {(i, y): bool}.
+
+           A ramp spans its cell's full width and leans against the wall at the
+           back of that cell. It is dropped when either:
+             - its own backing wall was removed, so the ramp would float in
+               mid-air inside the merged compartment, or
+             - a side wall was removed AND the neighbour on that side has no
+               ramp, which would leave this ramp's end face exposed into that
+               90-degree opening.
+
+           Cells merged only side-by-side keep their ramps (their backing walls
+           are intact, so the ramps join into one continuous wide ramp), and so
+           do cells merged front-to-back (the ramp still sits at the real back
+           wall of the deeper compartment)."""
+
+        cX = self.settings.compartmentsX
+        cY = self.settings.compartmentsY
+
+        hasScoop = {}
+        for y in range(cY):
+            for i in range(cX):
+                backRemoved = (y + 1 < cY) and ('h', i, y + 1) in removed
+                hasScoop[(i, y)] = not backRemoved
+
+        # Dropping a ramp can expose its neighbour's end in turn, so keep
+        # propagating until nothing changes
+        changed = True
+        while changed:
+            changed = False
+            for y in range(cY):
+                for i in range(cX):
+                    if not hasScoop[(i, y)]:
+                        continue
+                    openLeft = i >= 1 and ('v', i, y) in removed and not hasScoop[(i - 1, y)]
+                    openRight = i + 1 < cX and ('v', i + 1, y) in removed and not hasScoop[(i + 1, y)]
+                    if openLeft or openRight:
+                        hasScoop[(i, y)] = False
+                        changed = True
+
+        return hasScoop
+
     def grab_curve(self, basePlane):
 
         result = basePlane.workplane()
 
+        removed = self.parse_removed_walls()
+
         # To ensure the curve fits, take the smallest of: The height of the divider walls, the length of a compartment, half the brick unit-size (Y-direction)
         radius = min((self.settings.sizeUnitsZ-1) * self.grid.HEIGHT_UNITSIZE_MM, self.compartmentSizeY, self.grid.BRICK_UNIT_SIZE_Y/2)
-        
+
+        hasScoop = self.cells_with_scoop(removed)
+
         for y in range(self.settings.compartmentsY):
-            startX = self.grid.WALL_THICKNESS + (y+1)*self.compartmentSizeY
-            result.add(
+            # Ramps are built per cell, keeping merged compartments contiguous
+            # (see cells_with_scoop for which cells qualify)
+            boundary = y + 1
+            startX = self.grid.WALL_THICKNESS + boundary*self.compartmentSizeY
+
+            # One-cell-wide ramp solid for this row (at column 0), translated
+            # into place for every cell that keeps its ramp
+            rowRamp = (
                 basePlane.sketch()
                 .segment((startX,self.grid.HEIGHT_UNITSIZE_MM+radius),(startX,self.grid.HEIGHT_UNITSIZE_MM))
                 .segment((startX-radius,self.grid.HEIGHT_UNITSIZE_MM))
                 .arc((startX-radius,self.grid.HEIGHT_UNITSIZE_MM+radius),radius,270,90)
                 .assemble()
                 .finalize()
-                .extrude(self.internalSizeX)
+                .extrude(self.compartmentSizeX)
                 )
+
+            for i in range(self.settings.compartmentsX):
+                if not hasScoop[(i, y)]:
+                    continue
+                result.add(rowRamp.translate((i*self.compartmentSizeX, 0, 0)))
 
         return result
 
@@ -178,9 +260,62 @@ class Generator:
 
         return result
 
+    def get_dimensions(self):
+        """Real-world dimensions for the readout panel"""
+        import math
+
+        # Volume displaced by features protruding into the interior, using the
+        # same cross-sections the geometry code builds
+
+        # Label tab: trapezoid profile (see label_tab), one ridge per row when
+        # multiLabel is set, extruded across the full internal width
+        labelArea = 0
+        labelVol = 0
+        if self.settings.addLabelRidge:
+            W = self.settings.labelRidgeWidth
+            h = min(self.compartmentSizeZ, W - self.grid.CHAMFER_EPSILON)
+            labelArea = h * (2 * W - h) / 2
+            # Count the ridges actually built: label_tab skips boundaries whose
+            # backing wall was removed by the layout editor
+            removedWalls = self.parse_removed_walls()
+            numRidges = 1
+            if self.settings.multiLabel:
+                numRidges += sum(
+                    1 for x in range(1, self.settings.compartmentsY)
+                    if not any(('h', i, x) in removedWalls for i in range(self.settings.compartmentsX)))
+            labelVol = labelArea * self.internalSizeX * numRidges
+
+        # Scoop ramp: square-minus-quarter-circle profile (see grab_curve),
+        # built per cell - count only the segments actually present (a cell
+        # whose backing wall was removed by the layout editor has no ramp)
+        scoopArea = 0
+        scoopVol = 0
+        if self.settings.addGrabCurve:
+            r = min((self.settings.sizeUnitsZ - 1) * self.grid.HEIGHT_UNITSIZE_MM,
+                    self.compartmentSizeY, self.grid.BRICK_UNIT_SIZE_Y / 2)
+            scoopArea = r * r * (1 - math.pi / 4)
+            builtSegments = sum(1 for present in self.cells_with_scoop(self.parse_removed_walls()).values() if present)
+            scoopVol = scoopArea * self.compartmentSizeX * builtSegments
+
+        # Per-compartment: the scoop hits every compartment (one ramp per row);
+        # the label tab hits every compartment only when there is a ridge on
+        # every row, or just a single row
+        cX = self.settings.compartmentsX
+        usableX = (self.internalSizeX - self.settings.dividerThickness * (cX - 1)) / cX
+        perCompArea = scoopArea
+        if self.settings.multiLabel or self.settings.compartmentsY == 1:
+            perCompArea += labelArea
+
+        sections = [
+            dims.bin_outer_section(self),
+            dims.interior_section(self, self.compartmentSizeZ, labelVol + scoopVol),
+            dims.compartment_section(self, self.compartmentSizeZ, perCompArea * usableX),
+        ]
+        return [s for s in sections if s]
+
     def generate_stl(self, filename):
         model = self.generate_model()
         logger.debug("Saved classicbin to {0}".format(filename))
-        exporters.export(model, filename)
+        export_model(model, filename)
 
 

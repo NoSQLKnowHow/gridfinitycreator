@@ -11,11 +11,9 @@ import logging
 
 logger = logging.getLogger('CBG')
 
-def process(form, constants):
+def make_settings(form):
     # Copy the settings from the form
     s = settings.Settings()
-    
-    # Copy the settings from the form
     s.sizeUnitsX = form.sizeUnitsX.data
     s.sizeUnitsY = form.sizeUnitsY.data
     s.sizeUnitsZ = form.sizeUnitsZ.data
@@ -29,6 +27,16 @@ def process(form, constants):
     s.addGrabCurve = form.addGrabCurve.data
     s.addLabelRidge = form.addLabelRidge.data
     s.multiLabel = form.multiLabel.data
+    s.removedWalls = form.removedWalls.data or ""
+    return s
+
+def dimensions(form, constants):
+    g = constants if constants else grid_constants.Grid()
+    gen = generator.Generator(make_settings(form), g)
+    return gen.get_dimensions()
+
+def process(form, constants):
+    s = make_settings(form)
 
     # Default grid (Gridfinity)
     if not constants:
@@ -37,7 +45,9 @@ def process(form, constants):
         g = constants
 
     # Construct the names for the temporary and downloaded file
-    filename = "/tmpfiles/" + str(uuid.uuid4()) + "." + form.exportFormat.data
+    tmp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'tmpfiles')
+    os.makedirs(tmp_dir, exist_ok=True)
+    filename = os.path.join(tmp_dir, str(uuid.uuid4()) + "." + form.exportFormat.data)
 
     # Generate the STL file
     gen = generator.Generator(s, g)

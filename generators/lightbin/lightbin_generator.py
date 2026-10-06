@@ -1,6 +1,9 @@
 import cadquery as cq
 from cadquery import exporters
 from grid_constants import *
+from generators.common import dimensions as dims
+from generators.common.export import export_model
+from generators.common import layout
 import time
 import logging
 
@@ -143,6 +146,85 @@ class Generator:
             
         return result
     
+    def parse_removed_walls(self):
+        """Parse the removedWalls setting into a set of ('v'|'h', i, j) tuples"""
+        return layout.parse_removed_walls(self.settings)
+
+    def divider_walls(self, basePlane):
+        """Create a regularly spaced grid of internal divider walls"""
+
+        resultPlane = basePlane.center(self.grid.WALL_THICKNESS, self.grid.WALL_THICKNESS)
+        result = resultPlane.workplane()
+
+        # basePlane sits at the top of the (thin) light-bin floor, whereas compartmentSizeZ
+        # is derived assuming the standard FLOOR_THICKNESS. Stretch the divider height by the
+        # difference so it still reaches the top of the interior wall (below the stacking lip),
+        # while its untranslated bottom face rests flush on the floor.
+        dividerHeight = self.compartmentSizeZ + self.grid.FLOOR_THICKNESS - self.grid.LIGHT_FLOOR_THICKNESS
+
+        # The light floor is perforated with a weight-saving cutout per grid unit, so a divider
+        # can span straight across a cutout and float with nothing beneath it. Every divider
+        # gets a support plug filling the floor's own thickness below it (base top to floor
+        # top) - this is always safe to add unconditionally, since the light floor tiles butt
+        # up against each other seamlessly at every grid-unit seam, so this slice is solid
+        # everywhere along a divider's length regardless of where it falls.
+        upperSupportHeight = self.grid.LIGHT_FLOOR_THICKNESS
+
+        # Below that, the base itself is mostly hollow (solid only right at the bottom and
+        # around its outer taper), and adjacent units don't touch each other down there at all.
+        # A deeper plug is needed to reach the bin's true bottom face and close the remaining
+        # gap, but it must be clipped to wherever the base actually has material at z=0, or it
+        # will bridge straight through the gaps between units and poke out past the bin's own
+        # contour. Extrude the base's own bottom faces upward to build that footprint.
+        lowerSupportHeight = self.baseTopZ
+        footprintSolids = [
+            cq.Solid.extrudeLinear(face, cq.Vector(0, 0, lowerSupportHeight))
+            for face in self.baseBottomFaces
+        ]
+        footprint = cq.Workplane("XY").newObject(footprintSolids)
+
+        def add_wall_segment(sizeX, sizeY, centered, xPos, yPos):
+            """One divider segment plus its two support plugs"""
+            result.add(
+                resultPlane.box(sizeX, sizeY, dividerHeight, centered=centered, combine=False)
+                .translate((xPos, yPos, 0)))
+            result.add(
+                resultPlane.box(sizeX, sizeY, upperSupportHeight, centered=centered, combine=False)
+                .translate((xPos, yPos, -upperSupportHeight)))
+            lowerSupport = (
+                resultPlane.box(sizeX, sizeY, lowerSupportHeight, centered=centered, combine=False)
+                .translate((xPos, yPos, -upperSupportHeight - lowerSupportHeight)))
+            clipped = lowerSupport.intersect(footprint)
+            # A short segment can fall entirely over a gap in the base's bottom
+            # footprint, leaving nothing after clipping - skip the empty result
+            if clipped.vals() and clipped.val().Volume() > 1e-9:
+                result.add(clipped)
+
+        removed = self.parse_removed_walls()
+
+        # Vertical walls (between columns), one segment per row - segments can
+        # be removed via the layout editor to merge cells into larger compartments
+        for i in range(1, self.settings.compartmentsX):
+            for j in range(self.settings.compartmentsY):
+                if ('v', i, j) in removed:
+                    continue
+                add_wall_segment(
+                    self.settings.dividerThickness, self.compartmentSizeY,
+                    (True, False, False),
+                    i * self.compartmentSizeX, j * self.compartmentSizeY)
+
+        # Horizontal walls (between rows), one segment per column
+        for j in range(1, self.settings.compartmentsY):
+            for i in range(self.settings.compartmentsX):
+                if ('h', i, j) in removed:
+                    continue
+                add_wall_segment(
+                    self.compartmentSizeX, self.settings.dividerThickness,
+                    (False, True, False),
+                    i * self.compartmentSizeX, j * self.compartmentSizeY)
+
+        return result
+
     def label_tab(self, basePlane):
         """Construct the pickup/label tab"""
 
@@ -187,8 +269,19 @@ class Generator:
         # Add the base of Gridfinity profiles
         result = self.grid_base(cq.Workplane("XY"))
 
+        # Remember the base's own bottom-facing faces (the only spots that actually touch the
+        # bin's true bottom at z=0 - the rest of the base is hollow, and adjacent units don't
+        # touch each other there). Divider support plugs are clipped to these later so they
+        # only ever fill in where solid material genuinely reaches the bottom.
+        self.baseBottomFaces = result.faces("<Z").vals()
+
         # Continue from the top of the base
         plane = result.faces(">Z").workplane()
+
+        # Remember how tall the base itself is (its top face height above the bin's true
+        # bottom at z=0) so divider support plugs can be sized to reach all the way down to
+        # solid material without any guesswork or duplicated magic numbers.
+        self.baseTopZ = plane.plane.origin.z
 
         # Add the floor of the bin
         result.add(self.brick_floor(plane))
@@ -196,6 +289,9 @@ class Generator:
         # Add the outer walls
         plane = result.faces(">Z").workplane()
         result.add(self.outer_wall(plane))
+
+        # Add the divider walls
+        result.add(self.divider_walls(plane))
 
         # Add the grabbing/label tab
         if self.settings.addLabelRidge:
@@ -207,7 +303,35 @@ class Generator:
 
         return result
 
+    def get_dimensions(self):
+        """Real-world dimensions for the readout panel"""
+        # The light bin's floor is thinner than the standard one, so its
+        # interior is deeper than a classic bin of the same height
+        usableDepth = self.compartmentSizeZ + self.grid.FLOOR_THICKNESS - self.grid.LIGHT_FLOOR_THICKNESS
+
+        # Volume displaced by the label tab: right-triangle profile (see
+        # label_tab), a single ridge extruded across the full internal width
+        labelArea = 0
+        labelVol = 0
+        if self.settings.addLabelRidge:
+            W = self.settings.labelRidgeWidth
+            h = min(self.compartmentSizeZ + 2.25, W - self.grid.CHAMFER_EPSILON)
+            labelArea = W * h / 2
+            labelVol = labelArea * self.internalSizeX
+
+        # The single ridge hits every compartment only when there is one row
+        cX = self.settings.compartmentsX
+        usableX = (self.internalSizeX - self.settings.dividerThickness * (cX - 1)) / cX
+        perCompArea = labelArea if self.settings.compartmentsY == 1 else 0
+
+        sections = [
+            dims.bin_outer_section(self),
+            dims.interior_section(self, usableDepth, labelVol),
+            dims.compartment_section(self, usableDepth, perCompArea * usableX),
+        ]
+        return [s for s in sections if s]
+
     def generate_stl(self, filename):
         model = self.generate_model()
-        exporters.export(model, filename)
+        export_model(model, filename)
 

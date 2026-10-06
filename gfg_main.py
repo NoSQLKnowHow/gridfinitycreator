@@ -1,3 +1,4 @@
+import datetime
 import importlib
 import logging
 import logging.handlers
@@ -7,7 +8,7 @@ import waitress
 
 from contextlib import contextmanager
 
-from flask import Flask, make_response, request
+from flask import Flask, jsonify, make_response, request
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -41,7 +42,9 @@ def render_index(form_list, constants, message):
     jinja_env.filters["inner_render"] = inner_render
 
     index_template = jinja_env.get_template("templates/index.html.j2")
-    return index_template.render(version=__version__, forms=form_list, message=message, gridsize_x=constants.GRID_UNIT_SIZE_X_MM,
+    # Resolved per request so the copyright never goes stale
+    return index_template.render(version=__version__, forms=form_list, message=message, year=datetime.date.today().year,
+                            gridsize_x=constants.GRID_UNIT_SIZE_X_MM,
                             gridsize_y=constants.GRID_UNIT_SIZE_Y_MM, gridsize_z=constants.HEIGHT_UNITSIZE_MM)
 
 # Handle GET requests for "/"
@@ -105,9 +108,22 @@ def index_post():
         f = gen.get_form()
         form_list.append(f)
         if gen.handles(request, f):
+            # Dimensions-only request: return the computed real-world dimensions
+            # as JSON without generating any geometry (cheap - arithmetic only)
+            if request.form.get('dimensions') == 'true' and hasattr(gen, 'dimensions'):
+                return jsonify(gen.dimensions(f, constants))
+
             # Generate an STL with the provided settings
-            logger.info("Generating {0} for: {1}".format(f.get_title(), request.remote_addr))
-            return gen.process(f, constants)
+            is_preview = 'preview' in request.form and request.form['preview'] == 'true'
+            logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))
+            response = gen.process(f, constants)
+            
+            # If this is a preview request, modify the response to return binary data instead of download
+            if is_preview:
+                response.headers['Content-Disposition'] = 'inline; filename="preview.stl"'
+                response.headers['Content-Type'] = 'application/octet-stream'
+            
+            return response
     
     response = make_response(render_index(form_list, constants, message))
     response.set_cookie('gridspec', str('{0},{1},{2}').format(constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM))
@@ -180,13 +196,19 @@ if __name__ == "__main__":
     console.addFilter(serverFilter())
     root.addHandler(console)
 
-    # Ensure log directory exists
-    log_dir = '/logs'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    # Ensure log directory exists in a writable location
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    default_log_dir = os.path.join(base_dir, 'logs')
+    log_dir = os.environ.get('GFG_LOG_DIR', default_log_dir)
+
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except OSError:
+        log_dir = os.path.join('/tmp', 'gridfinitycreator-logs')
+        os.makedirs(log_dir, exist_ok=True)
 
     # Configure rotating file logger
-    fh = logging.handlers.RotatingFileHandler('/logs/access.log', maxBytes=1000000, backupCount=10)
+    fh = logging.handlers.RotatingFileHandler(os.path.join(log_dir, 'access.log'), maxBytes=1000000, backupCount=10)
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
     fh.setFormatter(formatter)
