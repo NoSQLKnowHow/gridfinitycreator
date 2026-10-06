@@ -5,20 +5,21 @@ from grid_constants import *
 import os
 import help_provider as help
 from generators.common.settings_form import get_standard_settings_form
+from generators.common.validators import Bounded
 
 class Form(FlaskForm):
     id = "baseplate"
-    sizeUnitsX     = IntegerField("Width", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsY     = IntegerField("Length", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
+    sizeUnitsX     = IntegerField("Width", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsY     = IntegerField("Length", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
     baseStyle      = SelectField('Base style', choices=[
                         ('standard', 'Frame only'),
                         ('solid', 'Solid'),
                         ('skeleton', 'Skeletonized'),
                         ('weighted', 'Weighted'),
                     ], default='standard')
-    baseThickness  = DecimalField("Base thickness", default = 2.4, places = 2)
+    baseThickness  = DecimalField("Base thickness", validators=[Bounded(1, 10)], default = 2.4, places = 2)
     addMagnetHoles = BooleanField("Magnet holes", false_values=(False, "false", ""))
-    magnetHoleDiameter = DecimalField("Magnet-hole diameter", default = 6.5, places = 2)
+    magnetHoleDiameter = DecimalField("Magnet-hole diameter", validators=[Bounded(1, 10)], default = 6.5, places = 2)
     addScrewHoles  = BooleanField("Screw holes", false_values=(False, "false", ""))
     exportFormat   = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
 

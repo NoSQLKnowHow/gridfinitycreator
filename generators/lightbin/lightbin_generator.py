@@ -4,6 +4,8 @@ from grid_constants import *
 from generators.common import dimensions as dims
 from generators.common.export import export_model
 from generators.common import layout
+from generators.common import limits
+from generators.common.errors import SettingsError
 import time
 import logging
 
@@ -13,6 +15,8 @@ class Generator:
     def __init__(self, settings, grid) -> None:
         self.settings = settings
         self.grid = grid
+
+        limits.at_least_one(self.settings, 'sizeUnitsX', 'sizeUnitsY', 'sizeUnitsZ', 'compartmentsX', 'compartmentsY')
 
         # Precalculate both before and after validation to process settings that changes
         self.precalculate()
@@ -264,6 +268,12 @@ class Generator:
 
         # Ensure the labeltab is smaller than half the compartmentsize, or it will close off a row
         self.settings.labelRidgeWidth = min(self.compartmentSizeY/2, self.settings.labelRidgeWidth)
+
+        # Refuse layouts whose divider walls would take minutes to build
+        segments = limits.divider_segment_count(
+            self.settings.compartmentsX, self.settings.compartmentsY, self.parse_removed_walls())
+        if segments > limits.max_light_divider_segments():
+            raise SettingsError(limits.divider_limit_message(segments, limits.max_light_divider_segments()))
 
     def generate_model(self):
         # Add the base of Gridfinity profiles

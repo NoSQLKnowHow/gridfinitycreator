@@ -5,17 +5,18 @@ from grid_constants import *
 import os
 import help_provider as help
 from generators.common.settings_form import get_standard_settings_form
+from generators.common.validators import Bounded
 
 class Form(FlaskForm):
     id = "solidbin"
-    sizeUnitsX     = IntegerField("Width", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsY     = IntegerField("Length", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsZ     = IntegerField("Height", widget=NumberInput(min = 1, max = Grid.MAX_HEIGHT_UNITS), default=6)
+    sizeUnitsX     = IntegerField("Width", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsY     = IntegerField("Length", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsZ     = IntegerField("Height", validators=[Bounded(1, Grid.MAX_HEIGHT_UNITS)], default=6)
     # Defaults must be real booleans: a string such as "False" is non-empty and
     # therefore truthy, which rendered those switches as checked
     addStackingLip = BooleanField("Stacking lip", default=True)
     addMagnetHoles = BooleanField("Magnet holes", default=True)
-    magnetHoleDiameter = DecimalField("Magnet-hole diameter", default = 6.5, places = 2)
+    magnetHoleDiameter = DecimalField("Magnet-hole diameter", validators=[Bounded(1, 10)], default = 6.5, places = 2)
     addRemovalHoles = BooleanField("Magnet removal holes", default=False)
     addScrewHoles   = BooleanField("Screw holes", default=False)
     exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
