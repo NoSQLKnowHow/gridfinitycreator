@@ -36,7 +36,7 @@ class Generator:
             .translate((0,0,4.65/2))
             .faces(">Z")
             .sketch()
-            .rect(42, 42)
+            .rect(self.grid.GRID_UNIT_SIZE_X_MM, self.grid.GRID_UNIT_SIZE_Y_MM)
             .vertices()
             .fillet(4)
             .finalize()

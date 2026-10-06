@@ -44,7 +44,7 @@ class Generator:
                     (0.55+x_offs, 0) 
                     ]
 
-        path = basePlane.rect(self.grid.BRICK_UNIT_SIZE_X, self.grid.BRICK_UNIT_SIZE_X).val()
+        path = basePlane.rect(self.grid.BRICK_UNIT_SIZE_X, self.grid.BRICK_UNIT_SIZE_Y).val()
         path = path.fillet2D(self.grid.BASE_TOP_FILLET_RADIUS, path.Vertices())
 
         baseUnit = (
@@ -54,7 +54,7 @@ class Generator:
             .sweep(path)
             )
 
-        floor = basePlane.box(self.grid.BRICK_UNIT_SIZE_X-6.7,self.grid.BRICK_UNIT_SIZE_X-6.7,self.settings.wallThickness).translate((0,0,self.settings.wallThickness/2))
+        floor = basePlane.box(self.grid.BRICK_UNIT_SIZE_X-6.7,self.grid.BRICK_UNIT_SIZE_Y-6.7,self.settings.wallThickness).translate((0,0,self.settings.wallThickness/2))
         baseUnit = baseUnit.add(floor)
         baseUnit = baseUnit.combine()
 
@@ -80,7 +80,7 @@ class Generator:
         """Create a floor covering all unit bases"""
 
         # Create the solid floor
-        floor = basePlane.box(self.grid.GRID_UNIT_SIZE_X_MM, self.grid.GRID_UNIT_SIZE_X_MM, self.grid.LIGHT_FLOOR_THICKNESS, centered = True, combine = False)
+        floor = basePlane.box(self.grid.GRID_UNIT_SIZE_X_MM, self.grid.GRID_UNIT_SIZE_Y_MM, self.grid.LIGHT_FLOOR_THICKNESS, centered = True, combine = False)
 
         # Create the cutout and remove it for each base unit
         cutoutSizeX = self.grid.BRICK_UNIT_SIZE_X-2*self.grid.WALL_THICKNESS
