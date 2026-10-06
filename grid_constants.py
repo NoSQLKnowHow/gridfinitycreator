@@ -21,7 +21,6 @@ class Grid:
     BASE_BOTTOM_FILLET_RADIUS: float = 1.6
     BASE_TOP_THICKNESS: float = 2.15
     BASE_TOP_FILLET_RADIUS: float = 3.75
-    FLOOR_THICKNESS: float = 2.25 # This thickness makes the base exactly 1 height unit high
     LIGHT_FLOOR_THICKNESS: float = 0.9
     DEFAULT_MAGNET_HOLE_DIAMETER: float = 6.5
     DEFAULT_MAGNET_HOLE_DEPTH: float = 2
@@ -35,6 +34,10 @@ class Grid:
     STACKING_LIP_HEIGHT: float = 4.4
 
     # Derived dimensions
+    # The floor fills whatever the base profile leaves of the first height unit, so the base
+    # is always exactly 1 unit high and a bin n units tall is n x HEIGHT_UNITSIZE_MM
+    # (2.25 mm at the standard 7 mm unit)
+    FLOOR_THICKNESS: float = round(HEIGHT_UNITSIZE_MM - BASE_BOTTOM_THICKNESS - BASE_TOP_THICKNESS, 6)
     BRICK_UNIT_SIZE_X: float = GRID_UNIT_SIZE_X_MM - BRICK_SIZE_TOLERANCE_MM
     BRICK_UNIT_SIZE_Y: float = GRID_UNIT_SIZE_Y_MM - BRICK_SIZE_TOLERANCE_MM
     BASE_BOTTOM_SIZE_X: float = BRICK_UNIT_SIZE_X-4.3
@@ -51,6 +54,7 @@ class Grid:
 
     def recalculate(self):
         # Recalculate the derived dimensions after changing one of the relevant fixed dimensions
+        self.FLOOR_THICKNESS = round(self.HEIGHT_UNITSIZE_MM - self.BASE_BOTTOM_THICKNESS - self.BASE_TOP_THICKNESS, 6)
         self.BRICK_UNIT_SIZE_X = self.GRID_UNIT_SIZE_X_MM - self.BRICK_SIZE_TOLERANCE_MM
         self.BRICK_UNIT_SIZE_Y = self.GRID_UNIT_SIZE_Y_MM - self.BRICK_SIZE_TOLERANCE_MM
         self.BASE_BOTTOM_SIZE_X = self.BRICK_UNIT_SIZE_X-4.3

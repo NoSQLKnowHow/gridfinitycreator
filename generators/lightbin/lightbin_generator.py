@@ -111,7 +111,9 @@ class Generator:
         cutout = cutout.edges("|Z").fillet(self.grid.CORNER_FILLET_RADIUS)
         shrink_box = plane.box(self.brickSizeX+5, self.brickSizeY+5, 1.9, centered = True, combine = False)
         shrink_box = shrink_box - cutout
-        shrink_box = shrink_box.translate((self.brickSizeX/2, self.brickSizeY/2, 5.25))
+        # Centre the band half a millimetre above the top of the base, so that it spans the floor
+        shrink_box = shrink_box.translate((self.brickSizeX/2, self.brickSizeY/2,
+                                           self.grid.BASE_BOTTOM_THICKNESS + self.grid.BASE_TOP_THICKNESS + 0.5))
 
         result = result - shrink_box
     
@@ -237,7 +239,7 @@ class Generator:
         startX = self.grid.WALL_THICKNESS
         
         # Limit the height of the label ridge to avoid it being taller than the compartment
-        labelRidgeHeight = min(self.compartmentSizeZ+2.25, self.settings.labelRidgeWidth-self.grid.CHAMFER_EPSILON)
+        labelRidgeHeight = min(self.compartmentSizeZ+self.grid.FLOOR_THICKNESS, self.settings.labelRidgeWidth-self.grid.CHAMFER_EPSILON)
 
         # Create the label tab profile and extrude it
         result.add(
@@ -325,7 +327,7 @@ class Generator:
         labelVol = 0
         if self.settings.addLabelRidge:
             W = self.settings.labelRidgeWidth
-            h = min(self.compartmentSizeZ + 2.25, W - self.grid.CHAMFER_EPSILON)
+            h = min(self.compartmentSizeZ + self.grid.FLOOR_THICKNESS, W - self.grid.CHAMFER_EPSILON)
             labelArea = W * h / 2
             labelVol = labelArea * self.internalSizeX
 

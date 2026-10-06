@@ -24,7 +24,7 @@ def test_unusable_cookies_parse_to_none(raw):
 
 
 def test_range_limits_are_inclusive():
-    assert gridspec.validate(["20", "150", "3"]) == (20.0, 150.0, 3.0)
+    assert gridspec.validate(["20", "150", "6"]) == (20.0, 150.0, 6.0)
     assert gridspec.validate(["150", "20", "20"]) == (150.0, 20.0, 20.0)
 
 
@@ -37,6 +37,7 @@ def test_range_limits_are_inclusive():
     (["42", "42", "0"], "Height unit"),
     (["19.99", "42", "7"], "Grid size X"),
     (["42", "150.01", "7"], "Grid size Y"),
+    (["42", "42", "5.99"], "Height unit"),   # the base profile leaves too thin a floor below 6 mm
 ])
 def test_validate_names_the_offending_field(values, label):
     with pytest.raises(gridspec.GridSpecError, match=label):

@@ -13,10 +13,13 @@ COOKIE_MAX_AGE = 365 * 24 * 60 * 60  # remember the choice for a year
 # (field label, minimum mm, maximum mm) for grid size X, grid size Y and the
 # height unit, in the order they are stored in the cookie. The generators were
 # checked to build valid models across this whole range.
+#
+# The base profile is 4.75 mm tall and the floor above it fills the rest of the first
+# height unit, so the unit must leave room for a floor that can be printed: 6 mm gives 1.25 mm.
 LIMITS = (
     ("Grid size X", 20.0, 150.0),
     ("Grid size Y", 20.0, 150.0),
-    ("Height unit", 3.0, 20.0),
+    ("Height unit", 6.0, 20.0),
 )
 
 
