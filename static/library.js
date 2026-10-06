@@ -12,12 +12,38 @@ class GridfinityLibrary {
 
   init() {
     // Initialize library in localStorage if it doesn't exist
-    if (!localStorage.getItem(this.STORAGE_KEY)) {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
-        version: this.VERSION,
-        configs: []
-      }));
+    try {
+      if (!localStorage.getItem(this.STORAGE_KEY)) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+          version: this.VERSION,
+          configs: []
+        }));
+      }
+    } catch (e) {
+      // Storage unavailable (blocked, private window): the page still works, saving just fails
     }
+  }
+
+  /**
+   * The stored library, with anything invalid removed. Storage can hold data that did
+   * not come from this code (an import, an older version), so it is never trusted:
+   * unreadable storage counts as an empty library and bad entries are dropped.
+   */
+  readLibrary() {
+    let stored = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(this.STORAGE_KEY));
+    } catch (e) {
+      // unreadable: treated as empty
+    }
+    return GfgSafe.sanitizeLibrary(stored, this.VERSION);
+  }
+
+  writeLibrary(library) {
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+      version: library.version,
+      configs: library.configs
+    }));
   }
 
   /**
@@ -41,9 +67,9 @@ class GridfinityLibrary {
       notes: ''
     };
 
-    const library = JSON.parse(localStorage.getItem(this.STORAGE_KEY));
+    const library = this.readLibrary();
     library.configs.push(config);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(library));
+    this.writeLibrary(library);
 
     return config;
   }
@@ -54,7 +80,7 @@ class GridfinityLibrary {
    * @param {string} formId - The form ID to load into
    */
   loadConfig(configId, formId) {
-    const library = JSON.parse(localStorage.getItem(this.STORAGE_KEY));
+    const library = this.readLibrary();
     const config = library.configs.find(c => c.id === configId);
 
     if (!config) {
@@ -75,9 +101,9 @@ class GridfinityLibrary {
    * @param {string} configId - The config ID to delete
    */
   deleteConfig(configId) {
-    const library = JSON.parse(localStorage.getItem(this.STORAGE_KEY));
+    const library = this.readLibrary();
     library.configs = library.configs.filter(c => c.id !== configId);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(library));
+    this.writeLibrary(library);
   }
 
   /**
@@ -86,7 +112,7 @@ class GridfinityLibrary {
    * @returns {array} Array of configurations
    */
   getAllConfigs(formId = null) {
-    const library = JSON.parse(localStorage.getItem(this.STORAGE_KEY));
+    const library = this.readLibrary();
     if (!formId) {
       return library.configs;
     }
@@ -99,8 +125,7 @@ class GridfinityLibrary {
    * @returns {object} The configuration
    */
   getConfig(configId) {
-    const library = JSON.parse(localStorage.getItem(this.STORAGE_KEY));
-    return library.configs.find(c => c.id === configId);
+    return this.readLibrary().configs.find(c => c.id === configId);
   }
 
   /**
@@ -112,20 +137,32 @@ class GridfinityLibrary {
   }
 
   /**
-   * Import library from JSON string (overwrites existing)
+   * Import library from JSON string (overwrites existing).
+   *
+   * The text may come from anywhere, so every entry is validated and only clean copies
+   * are stored: it used to be written to storage as-is, and a hostile name or id in it
+   * then ran as script when the library was displayed.
    * @param {string} jsonString - JSON string to import
+   * @returns {{imported: number, skipped: number}} how many entries were kept and rejected
    */
   importLibrary(jsonString) {
+    let imported;
     try {
-      const imported = JSON.parse(jsonString);
-      if (!imported.version || !Array.isArray(imported.configs)) {
-        throw new Error('Invalid library format');
-      }
-      localStorage.setItem(this.STORAGE_KEY, jsonString);
-      return true;
+      imported = JSON.parse(jsonString);
     } catch (e) {
-      throw new Error('Failed to import library: ' + e.message);
+      throw new Error('Failed to import library: the file is not valid JSON');
     }
+    if (!imported || typeof imported !== 'object' || !imported.version || !Array.isArray(imported.configs)) {
+      throw new Error('Failed to import library: invalid library format');
+    }
+
+    const library = GfgSafe.sanitizeLibrary(imported, this.VERSION);
+    if (imported.configs.length > 0 && library.configs.length === 0) {
+      throw new Error(`Failed to import library: none of its ${imported.configs.length} entries are valid`);
+    }
+
+    this.writeLibrary(library);
+    return { imported: library.configs.length, skipped: library.dropped };
   }
 
   /**
@@ -142,13 +179,13 @@ class GridfinityLibrary {
    * @param {string} encodedString - Encoded library string
    */
   importFromString(encodedString) {
+    let json;
     try {
-      const json = atob(encodedString);
-      this.importLibrary(json);
-      return true;
+      json = atob(encodedString);
     } catch (e) {
       throw new Error('Failed to decode library: ' + e.message);
     }
+    return this.importLibrary(json);
   }
 
   /**
@@ -201,19 +238,28 @@ class GridfinityLibrary {
    * @private
    */
   populateFormData(formElement, data) {
+    // The data may come from an imported file or a shared link
+    if (!GfgSafe.isConfigData(data)) {
+      throw new Error('This configuration is not valid');
+    }
+
     for (let [key, value] of Object.entries(data)) {
-      const field = formElement.elements[key];
-      if (!field) continue;
+      // Never overwrite the form's security token with a stored value
+      if (key === 'csrf_token') continue;
+
+      // Only real form controls (a name such as "length" would otherwise find a property of the form)
+      const field = formElement.elements.namedItem(key);
+      if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) continue;
+
+      if (Array.isArray(value)) value = value[0];
 
       if (field.type === 'checkbox') {
         field.checked = value === true || value === 'true' || value === 'on';
       } else if (field.type === 'radio') {
-        const radioButton = formElement.querySelector(`input[name="${key}"][value="${value}"]`);
+        const radioButton = formElement.querySelector(`input[name="${CSS.escape(key)}"][value="${CSS.escape(String(value))}"]`);
         if (radioButton) {
           radioButton.checked = true;
         }
-      } else if (field.tagName === 'SELECT') {
-        field.value = value;
       } else {
         field.value = value;
       }
@@ -272,15 +318,17 @@ function showLoadModal(formId) {
     return;
   }
 
+  // Buttons carry their ids in data attributes (see the click handler below) rather than in
+  // inline onclick="..." code: escaping text for HTML does not make it safe inside a script string
   const listHtml = configs.map(config => `
     <div class="list-group-item d-flex justify-content-between align-items-center">
       <div>
         <strong>${escapeHtml(config.name)}</strong>
-        <small class="text-muted d-block">${new Date(config.createdAt).toLocaleString()}</small>
+        <small class="text-muted d-block">${escapeHtml(formatDate(config.createdAt))}</small>
       </div>
       <div>
-        <button class="btn btn-sm btn-primary me-2" onclick="libraryLoadAndClose('${escapeHtml(config.id)}', '${formId}')">Load</button>
-        <button class="btn btn-sm btn-danger" onclick="libraryDelete('${escapeHtml(config.id)}')">Delete</button>
+        <button class="btn btn-sm btn-primary me-2" data-library-action="load" data-config-id="${escapeHtml(config.id)}" data-form-id="${escapeHtml(formId)}">Load</button>
+        <button class="btn btn-sm btn-danger" data-library-action="delete" data-config-id="${escapeHtml(config.id)}">Delete</button>
       </div>
     </div>
   `).join('');
@@ -314,15 +362,15 @@ function showLibraryModal() {
 
     html = Object.entries(grouped).map(([formId, formConfigs]) => `
       <div class="mb-4">
-        <h6>${formId}</h6>
+        <h6>${escapeHtml(formId)}</h6>
         <div class="list-group">
           ${formConfigs.map(config => `
             <div class="list-group-item d-flex justify-content-between align-items-center">
               <div>
                 <strong>${escapeHtml(config.name)}</strong>
-                <small class="text-muted d-block">${new Date(config.createdAt).toLocaleString()}</small>
+                <small class="text-muted d-block">${escapeHtml(formatDate(config.createdAt))}</small>
               </div>
-              <button class="btn btn-sm btn-danger" onclick="libraryDelete('${escapeHtml(config.id)}')">Delete</button>
+              <button class="btn btn-sm btn-danger" data-library-action="delete" data-config-id="${escapeHtml(config.id)}">Delete</button>
             </div>
           `).join('')}
         </div>
@@ -336,6 +384,27 @@ function showLibraryModal() {
 
   const modal = new bootstrap.Modal(document.getElementById('library-manage-modal'));
   modal.show();
+}
+
+/**
+ * Handle the Load/Delete buttons in the library lists. One listener for the whole page, with
+ * the ids read from data attributes: they are plain strings here, never code.
+ */
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-library-action]');
+  if (!button) return;
+
+  if (button.dataset.libraryAction === 'load') {
+    libraryLoadAndClose(button.dataset.configId, button.dataset.formId);
+  } else if (button.dataset.libraryAction === 'delete') {
+    libraryDelete(button.dataset.configId);
+  }
+});
+
+/** A saved time for display ("" if it is missing or not a date) */
+function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
 }
 
 /**
@@ -433,8 +502,9 @@ function libraryImport() {
     const reader = new FileReader();
     reader.onload = function(event) {
       try {
-        gridfinityLib.importLibrary(event.target.result);
-        alert('Library imported successfully!');
+        const result = gridfinityLib.importLibrary(event.target.result);
+        alert(`Library imported: ${result.imported} configuration${result.imported === 1 ? '' : 's'}` +
+          (result.skipped ? ` (${result.skipped} invalid entr${result.skipped === 1 ? 'y' : 'ies'} skipped)` : '') + '.');
         if (document.getElementById('library-manage-modal').classList.contains('show')) {
           showLibraryModal();
         }
@@ -533,7 +603,12 @@ function applySharedConfigFromUrl() {
     return;
   }
 
-  gridfinityLib.populateFormData(formElement, data);
+  try {
+    gridfinityLib.populateFormData(formElement, data);
+  } catch (e) {
+    console.warn('Ignoring the shared configuration:', e.message);
+    return;
+  }
 
   // Switching the tab triggers the existing shown.bs.tab handler,
   // which resizes the viewer and regenerates the preview.
@@ -550,12 +625,5 @@ window.addEventListener('load', applySharedConfigFromUrl);
  * Utility to escape HTML
  */
 function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, m => map[m]);
+  return GfgSafe.escapeHtml(text);
 }
