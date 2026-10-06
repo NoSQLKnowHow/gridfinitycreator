@@ -15,33 +15,30 @@
             })();
         </script>
 
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-
-        <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/flatly/bootstrap.min.css"
-        integrity="sha256-JbXZMBEeXZolOq78p+ASw+5YCEXPUmNmKmIMYeGDTe0="
-        crossorigin="anonymous"
-        />
+        <!-- Everything is served from /static/vendor: no third-party hosts (see static/vendor/README.md) -->
+        <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+        <link rel="stylesheet" href="/static/vendor/bootswatch/flatly.min.css">
         <link rel="stylesheet" href="/static/theme.css">
 
         <title>Gridfinity Creator</title>
         {% endblock %}
     </head>
     <body>
+        <a class="visually-hidden-focusable" href="#main">Skip to the content</a>
         <!-- Your page content -->
         {% block content %}{% endblock %}
 
-        <script src=https://code.jquery.com/jquery-3.7.0.js></script>
         <!-- bootstrap.bundle includes Popper; loading a second bootstrap.js would double-register
              every data-api handler and break toggles (collapse re-opens instantly) -->
-        <script src=https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+        <script src="/static/vendor/three/three.min.js"></script>
+        <script src=/static/safe_config.js></script>
+        <script src=/static/latest_request.js></script>
         <script src=/static/library.js></script>
         <script src=/static/viewer.js></script>
         <script src=/static/theme.js></script>
+        <script src=/static/tabs.js></script>
+        <script src=/static/generate_feedback.js></script>
         <script src=/static/layout_editor.js></script>
         {% block scripts %}{% endblock %}
     </body>

@@ -4,6 +4,8 @@ from grid_constants import *
 from generators.common import dimensions as dims
 from generators.common.export import export_model
 from generators.common import layout
+from generators.common import limits
+from generators.common.errors import SettingsError
 import time
 import logging
 
@@ -13,6 +15,8 @@ class Generator:
     def __init__(self, settings, grid) -> None:
         self.settings = settings
         self.grid = grid
+
+        limits.at_least_one(self.settings, 'sizeUnitsX', 'sizeUnitsY', 'sizeUnitsZ', 'compartmentsX', 'compartmentsY')
 
         # Precalculate both before and after validation to process settings that changes
         self.precalculate()
@@ -40,7 +44,7 @@ class Generator:
                     (0.55+x_offs, 0) 
                     ]
 
-        path = basePlane.rect(self.grid.BRICK_UNIT_SIZE_X, self.grid.BRICK_UNIT_SIZE_X).val()
+        path = basePlane.rect(self.grid.BRICK_UNIT_SIZE_X, self.grid.BRICK_UNIT_SIZE_Y).val()
         path = path.fillet2D(self.grid.BASE_TOP_FILLET_RADIUS, path.Vertices())
 
         baseUnit = (
@@ -50,7 +54,7 @@ class Generator:
             .sweep(path)
             )
 
-        floor = basePlane.box(self.grid.BRICK_UNIT_SIZE_X-6.7,self.grid.BRICK_UNIT_SIZE_X-6.7,self.settings.wallThickness).translate((0,0,self.settings.wallThickness/2))
+        floor = basePlane.box(self.grid.BRICK_UNIT_SIZE_X-6.7,self.grid.BRICK_UNIT_SIZE_Y-6.7,self.settings.wallThickness).translate((0,0,self.settings.wallThickness/2))
         baseUnit = baseUnit.add(floor)
         baseUnit = baseUnit.combine()
 
@@ -76,7 +80,7 @@ class Generator:
         """Create a floor covering all unit bases"""
 
         # Create the solid floor
-        floor = basePlane.box(self.grid.GRID_UNIT_SIZE_X_MM, self.grid.GRID_UNIT_SIZE_X_MM, self.grid.LIGHT_FLOOR_THICKNESS, centered = True, combine = False)
+        floor = basePlane.box(self.grid.GRID_UNIT_SIZE_X_MM, self.grid.GRID_UNIT_SIZE_Y_MM, self.grid.LIGHT_FLOOR_THICKNESS, centered = True, combine = False)
 
         # Create the cutout and remove it for each base unit
         cutoutSizeX = self.grid.BRICK_UNIT_SIZE_X-2*self.grid.WALL_THICKNESS
@@ -107,7 +111,9 @@ class Generator:
         cutout = cutout.edges("|Z").fillet(self.grid.CORNER_FILLET_RADIUS)
         shrink_box = plane.box(self.brickSizeX+5, self.brickSizeY+5, 1.9, centered = True, combine = False)
         shrink_box = shrink_box - cutout
-        shrink_box = shrink_box.translate((self.brickSizeX/2, self.brickSizeY/2, 5.25))
+        # Centre the band half a millimetre above the top of the base, so that it spans the floor
+        shrink_box = shrink_box.translate((self.brickSizeX/2, self.brickSizeY/2,
+                                           self.grid.BASE_BOTTOM_THICKNESS + self.grid.BASE_TOP_THICKNESS + 0.5))
 
         result = result - shrink_box
     
@@ -233,7 +239,7 @@ class Generator:
         startX = self.grid.WALL_THICKNESS
         
         # Limit the height of the label ridge to avoid it being taller than the compartment
-        labelRidgeHeight = min(self.compartmentSizeZ+2.25, self.settings.labelRidgeWidth-self.grid.CHAMFER_EPSILON)
+        labelRidgeHeight = min(self.compartmentSizeZ+self.grid.FLOOR_THICKNESS, self.settings.labelRidgeWidth-self.grid.CHAMFER_EPSILON)
 
         # Create the label tab profile and extrude it
         result.add(
@@ -264,6 +270,12 @@ class Generator:
 
         # Ensure the labeltab is smaller than half the compartmentsize, or it will close off a row
         self.settings.labelRidgeWidth = min(self.compartmentSizeY/2, self.settings.labelRidgeWidth)
+
+        # Refuse layouts whose divider walls would take minutes to build
+        segments = limits.divider_segment_count(
+            self.settings.compartmentsX, self.settings.compartmentsY, self.parse_removed_walls())
+        if segments > limits.max_light_divider_segments():
+            raise SettingsError(limits.divider_limit_message(segments, limits.max_light_divider_segments()))
 
     def generate_model(self):
         # Add the base of Gridfinity profiles
@@ -315,7 +327,7 @@ class Generator:
         labelVol = 0
         if self.settings.addLabelRidge:
             W = self.settings.labelRidgeWidth
-            h = min(self.compartmentSizeZ + 2.25, W - self.grid.CHAMFER_EPSILON)
+            h = min(self.compartmentSizeZ + self.grid.FLOOR_THICKNESS, W - self.grid.CHAMFER_EPSILON)
             labelArea = W * h / 2
             labelVol = labelArea * self.internalSizeX
 

@@ -4,12 +4,26 @@ services:
   cadquery:
     container_name: cadquery
     build: ./
-    # Create a RAMdisk to store the generated files until they are downloaded to prevent wearing out the server's SSD
+    # RAM disks for the generated files (until they are downloaded; keeps the server's SSD from wearing
+    # out) and for /tmp, with a size limit each so that neither can take the machine's memory
     tmpfs:
-      - /tmpfiles
-    environment:
-      - PUID=1000
-      - PGID=1000
+      - /tmpfiles:size=512m,uid=1000,gid=1000
+      - /tmp:size=256m,uid=1000,gid=1000
+    # Run as an ordinary user on a read-only filesystem, with no extra privileges. The only places
+    # the server writes are the RAM disks below (generated files, and /tmp for the model builder's
+    # fork server) and the /logs volume.
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          # The page needs about 1g when idle and each build up to 0.6g more. Raise this for more
+          # than the default two builds at once (GFG_MAX_JOBS), or lower it on a small machine.
+          memory: ${GFG_MEM_LIMIT:-3g}
     restart: unless-stopped
     networks:
       - proxy
@@ -18,7 +32,11 @@ services:
     env_file:
       - .env.container
     volumes:
-      - ${DATA_ROOT:?error}/gridfinitycreator/logs:/logs
+      # DATA_ROOT is where the logs are kept; it defaults to ./data so a first start needs no setup.
+      # The server runs as uid 1000, so this directory has to be writable by that user (deploy.sh
+      # creates it for you). If it is not, the server still starts, and logs to a temporary
+      # directory instead, which is lost when the container is.
+      - ${DATA_ROOT:-./data}/gridfinitycreator/logs:/logs
     # labels:
     #   - "traefik.enable=true"
     #   - "traefik.http.routers.gridfinity.rule=Host(`${GFG_DOMAIN:?error}`)"

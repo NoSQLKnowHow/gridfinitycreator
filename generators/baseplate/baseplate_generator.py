@@ -3,6 +3,7 @@ from cadquery import exporters
 from grid_constants import *
 from generators.common import dimensions as dims
 from generators.common.export import export_model
+from generators.common import limits
 
 # Geometry constants for the slab features (mm)
 SKELETON_CUTOUT_DIAMETER = 27    # Per-cell through-cutout; clears magnet holes at the cell corners
@@ -18,6 +19,7 @@ class Generator:
         self.settings = settings
         self.grid = grid
 
+        limits.at_least_one(self.settings, 'sizeUnitsX', 'sizeUnitsY')
         self.validate_settings()
 
     def base_grid(self):
@@ -34,7 +36,7 @@ class Generator:
             .translate((0,0,4.65/2))
             .faces(">Z")
             .sketch()
-            .rect(42, 42)
+            .rect(self.grid.GRID_UNIT_SIZE_X_MM, self.grid.GRID_UNIT_SIZE_Y_MM)
             .vertices()
             .fillet(4)
             .finalize()

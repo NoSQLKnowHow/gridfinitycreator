@@ -4,6 +4,8 @@ import generators.holeybin.holeybin_generator as generator
 import generators.holeybin.holeybin_form as form
 import generators.holeybin.holeybin_settings as settings
 import grid_constants
+from generators.common.tmpfiles import get_tmp_dir
+import model_builder
 
 import uuid
 import os
@@ -50,15 +52,15 @@ def process(form, constants):
         g = constants
     
     # Construct the names for the temporary and downloaded file
-    tmp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'tmpfiles')
-    os.makedirs(tmp_dir, exist_ok=True)
-    filename = os.path.join(tmp_dir, str(uuid.uuid4()) + "." + form.exportFormat.data)
+    filename = os.path.join(get_tmp_dir(), str(uuid.uuid4()) + "." + form.exportFormat.data)
 
     logger.info(s)
 
     # Generate the STL file
-    gen = generator.Generator(s, g)
-    gen.generate_stl(filename)
+    # Check the settings here (cheap, and a refusal needs no process), then build the model
+    # in a separate process so the web server stays responsive while it works
+    generator.Generator(s, g)
+    model_builder.build(__name__, s, g, filename)
 
     logger.debug("Generating completed")
 

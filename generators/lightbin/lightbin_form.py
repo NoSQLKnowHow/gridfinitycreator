@@ -5,14 +5,18 @@ from grid_constants import *
 import os
 import help_provider as help
 from generators.common.settings_form import get_standard_settings_form
+from generators.common.validators import Bounded
+
+# The most compartments a bin can have in one direction
+MAX_COMPARTMENTS = Grid.MAX_COMPARTMENTS_PER_GRID_UNIT * Grid.MAX_GRID_UNITS
 
 class Form(FlaskForm):
     id = "lightbin"
-    sizeUnitsX     = IntegerField("Width", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsY     = IntegerField("Length", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsZ     = IntegerField("Height", widget=NumberInput(min = 1, max = Grid.MAX_HEIGHT_UNITS), default=6)
-    compartmentsX  = IntegerField("Width direction", widget=NumberInput(min = 1, max = Grid.MAX_COMPARTMENTS_PER_GRID_UNIT*Grid.MAX_GRID_UNITS), default=1)
-    compartmentsY  = IntegerField("Length direction", widget=NumberInput(min = 1, max = Grid.MAX_COMPARTMENTS_PER_GRID_UNIT*Grid.MAX_GRID_UNITS), default=1)
+    sizeUnitsX     = IntegerField("Width", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsY     = IntegerField("Length", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsZ     = IntegerField("Height", validators=[Bounded(1, Grid.MAX_HEIGHT_UNITS)], default=6)
+    compartmentsX  = IntegerField("Width direction", validators=[Bounded(1, MAX_COMPARTMENTS)], default=1)
+    compartmentsY  = IntegerField("Length direction", validators=[Bounded(1, MAX_COMPARTMENTS)], default=1)
     addStackingLip = BooleanField("Stacking lip", default="True")
     addLabelRidge  = BooleanField("Add label tab", default="True", false_values=(False, "false", ""))
     exportFormat   = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])

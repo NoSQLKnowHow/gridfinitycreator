@@ -12,7 +12,7 @@
   --gfg-surface-2: #f2f4fb;
   --gfg-border: #e2e7f3;
   --gfg-text: #171c30;
-  --gfg-text-muted: #66708f;
+  --gfg-text-muted: #5d6787; /* 4.95:1 on the page, 5.1:1 on the second surface (#66708f gave 4.34 and 4.47) */
   --gfg-accent: #4f46e5;
   --gfg-accent-2: #06b6d4;
   --gfg-accent-3: #ec4899;
@@ -208,7 +208,16 @@ body::after {
 
 .gfg-hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+main:focus {
+  outline: none; /* focus lands here from the skip link; it is not a control */
+}
+
+.gfg-footer {
+  color: var(--gfg-text-muted);
 }
 
 /* Glass icon chips (theme toggle, library, settings) */
@@ -237,6 +246,26 @@ body::after {
   transform: translateY(0);
 }
 
+/* Reminder that a grid other than the Gridfinity standard is in use */
+.gfg-grid-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--gfg-accent-rgb), 0.6);
+  background: rgba(var(--gfg-accent-rgb), 0.12);
+  color: var(--gfg-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gfg-grid-badge:hover {
+  background: rgba(var(--gfg-accent-rgb), 0.2);
+}
+
 /* Theme toggle icon swap */
 .theme-toggle .icon-moon {
   display: none;
@@ -256,7 +285,13 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
 
 .nav-tabs {
   display: inline-flex;
-  flex-wrap: wrap;
+  /* One line that scrolls sideways when the tabs do not fit (a phone), rather than
+     wrapping onto three lines */
+  position: relative; /* so the tabs' offsetLeft is measured from the strip (tabs.js) */
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 0.2rem;
   background: color-mix(in srgb, var(--gfg-surface-2) 80%, transparent);
   border: 1px solid var(--gfg-border);
@@ -270,7 +305,12 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   margin: 0;
 }
 
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
 .nav-tabs .nav-link {
+  white-space: nowrap;
   border: none;
   margin: 0;
   border-radius: 999px;
@@ -407,6 +447,12 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   transform: translateX(-130%);
 }
 
+/* A Generate button that is waiting for its model: still focusable, but visibly busy */
+.btn[aria-disabled="true"] {
+  opacity: 0.8;
+  cursor: progress;
+}
+
 .btn-primary:hover::after {
   transform: translateX(130%);
   transition: transform 0.6s ease;
@@ -415,6 +461,16 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
 /* ---------------------------------------------------------------------- */
 /* Help badges                                                            */
 /* ---------------------------------------------------------------------- */
+
+.help-button {
+  border: 0;
+  cursor: pointer;
+}
+
+.help-button:focus-visible {
+  outline: 3px solid var(--gfg-text);
+  outline-offset: 2px;
+}
 
 .help-button.bg-primary {
   background: linear-gradient(110deg, var(--gfg-accent), var(--gfg-accent-2)) !important;
@@ -633,6 +689,16 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   cursor: pointer;
 }
 
+.gfg-layout-hit:focus {
+  outline: none;
+}
+
+.gfg-layout-hit:focus-visible {
+  fill: rgba(var(--gfg-accent-rgb), 0.25);
+  stroke: var(--gfg-text);
+  stroke-width: 2;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Real-dimensions readout                                                 */
 /* ---------------------------------------------------------------------- */
@@ -708,6 +774,108 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   box-shadow: var(--gfg-shadow-sm);
 }
 
+/* Flatly's solid alert colours put white text on 2.2 to 3.8:1 (WCAG AA asks 4.5:1). These are the
+   nearest shades that pass; warning keeps its orange and gets dark text instead. */
+.alert-danger {
+  background-color: #c0392b;
+  border-color: #c0392b;
+  color: #ffffff;
+}
+
+.alert-info {
+  background-color: #1f6fa5;
+  border-color: #1f6fa5;
+  color: #ffffff;
+}
+
+.alert-success {
+  background-color: #117a65;
+  border-color: #117a65;
+  color: #ffffff;
+}
+
+.alert-warning {
+  background-color: #f39c12;
+  border-color: #f39c12;
+  color: #1b1f2a;
+}
+
+.alert-secondary {
+  background-color: #566566;
+  border-color: #566566;
+  color: #ffffff;
+}
+
+/* The same for the secondary button (white on #95a5a6 was 2.56:1) */
+.btn-secondary {
+  --bs-btn-color: #ffffff;
+  --bs-btn-bg: #566566;
+  --bs-btn-border-color: #566566;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #444f50;
+  --bs-btn-hover-border-color: #3d4748;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #3d4748;
+  --bs-btn-active-border-color: #364041;
+  --bs-btn-disabled-color: #ffffff;
+  --bs-btn-disabled-bg: #566566;
+  --bs-btn-disabled-border-color: #566566;
+}
+
+/* Outline buttons on the light page: Flatly's colours are 2.1 to 3.4:1 against it. (On the dark
+   theme they are 5.0 to 8.0:1 already, so they are left alone there.) */
+:root:not([data-bs-theme="dark"]) .btn-outline-danger {
+  --bs-btn-color: #c0392b;
+  --bs-btn-border-color: #c0392b;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #c0392b;
+  --bs-btn-hover-border-color: #c0392b;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #c0392b;
+  --bs-btn-active-border-color: #c0392b;
+  --bs-btn-disabled-color: #c0392b;
+  --bs-btn-disabled-border-color: #c0392b;
+}
+
+:root:not([data-bs-theme="dark"]) .btn-outline-info {
+  --bs-btn-color: #1f6fa5;
+  --bs-btn-border-color: #1f6fa5;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #1f6fa5;
+  --bs-btn-hover-border-color: #1f6fa5;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #1f6fa5;
+  --bs-btn-active-border-color: #1f6fa5;
+  --bs-btn-disabled-color: #1f6fa5;
+  --bs-btn-disabled-border-color: #1f6fa5;
+}
+
+:root:not([data-bs-theme="dark"]) .btn-outline-success {
+  --bs-btn-color: #0b705c;
+  --bs-btn-border-color: #0b705c;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #0b705c;
+  --bs-btn-hover-border-color: #0b705c;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #0b705c;
+  --bs-btn-active-border-color: #0b705c;
+  --bs-btn-disabled-color: #0b705c;
+  --bs-btn-disabled-border-color: #0b705c;
+}
+
+:root:not([data-bs-theme="dark"]) .btn-outline-secondary {
+  --bs-btn-color: #566566;
+  --bs-btn-border-color: #566566;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #566566;
+  --bs-btn-hover-border-color: #566566;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #566566;
+  --bs-btn-active-border-color: #566566;
+  --bs-btn-disabled-color: #566566;
+  --bs-btn-disabled-border-color: #566566;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Reduced motion                                                          */
 /* ---------------------------------------------------------------------- */
@@ -724,5 +892,20 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
 
   .btn-primary:hover::after {
     transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Phones                                                                  */
+/* ---------------------------------------------------------------------- */
+
+@media (max-width: 575.98px) {
+  .gfg-shell {
+    padding: 0.25rem 0.75rem 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .gfg-hero {
+    padding: 1.25rem 0.25rem 0.75rem;
   }
 }

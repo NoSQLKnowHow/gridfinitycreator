@@ -1,0 +1,7 @@
+# Lint for real bugs only: syntax errors (E9), invalid comparisons (F63), invalid constructs (F7) and
+# undefined names (F82). The wider pyflakes set finds 55 cosmetic things (25 unused imports, 30
+# star-import notes); those are better cleaned up deliberately than made to fail the build.
+extend-exclude = ["static/vendor", "data", "logs", "tmpfiles"]
+
+[lint]
+select = ["E9", "F63", "F7", "F82"]

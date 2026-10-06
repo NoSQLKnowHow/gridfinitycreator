@@ -8,6 +8,8 @@ from generators.common.bin_base import bin_base
 from generators.common.export import export_model
 from generators.common import dimensions as dims
 from generators.common import layout
+from generators.common import limits
+from generators.common.errors import SettingsError
 
 logger = logging.getLogger('CBG')
 
@@ -15,6 +17,8 @@ class Generator:
     def __init__(self, settings, grid) -> None:
         self.settings = settings
         self.grid = grid
+
+        limits.at_least_one(self.settings, 'sizeUnitsX', 'sizeUnitsY', 'compartmentsX', 'compartmentsY')
 
         # Precalculate both before and after validation to process settings that changes
         self.precalculate()
@@ -228,6 +232,12 @@ class Generator:
 
         # Ensure the label tab is not deeper than the interior height of the bin or it will stick out 
         # self.settings.labelRidgeWidth = min(self.compartmentSizeZ, self.settings.labelRidgeWidth)
+
+        # Refuse layouts whose divider walls would take minutes to build
+        segments = limits.divider_segment_count(
+            self.settings.compartmentsX, self.settings.compartmentsY, self.parse_removed_walls())
+        if segments > limits.max_divider_segments():
+            raise SettingsError(limits.divider_limit_message(segments, limits.max_divider_segments()))
 
     def generate_model(self):
         plane = cq.Workplane("XY")

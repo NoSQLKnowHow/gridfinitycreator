@@ -5,11 +5,13 @@ from grid_constants import *
 from generators.common.bin_base import bin_base
 from generators.common.export import export_model
 from generators.common import dimensions as dims
+from generators.common import limits
 
 class Generator:
     def __init__(self, settings, grid) -> None:
         self.settings = settings
         self.grid = grid
+        limits.at_least_one(self.settings, 'sizeUnitsX', 'sizeUnitsY', 'sizeUnitsZ')
         # Precalculate both before and after validation to process settings that changes
         self.precalculate()
         self.validate_settings()
