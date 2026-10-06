@@ -12,7 +12,7 @@
   --gfg-surface-2: #f2f4fb;
   --gfg-border: #e2e7f3;
   --gfg-text: #171c30;
-  --gfg-text-muted: #66708f;
+  --gfg-text-muted: #5d6787; /* 4.95:1 on the page, 5.1:1 on the second surface (#66708f gave 4.34 and 4.47) */
   --gfg-accent: #4f46e5;
   --gfg-accent-2: #06b6d4;
   --gfg-accent-3: #ec4899;
@@ -762,6 +762,108 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   border: none;
   border-radius: var(--gfg-radius);
   box-shadow: var(--gfg-shadow-sm);
+}
+
+/* Flatly's solid alert colours put white text on 2.2 to 3.8:1 (WCAG AA asks 4.5:1). These are the
+   nearest shades that pass; warning keeps its orange and gets dark text instead. */
+.alert-danger {
+  background-color: #c0392b;
+  border-color: #c0392b;
+  color: #ffffff;
+}
+
+.alert-info {
+  background-color: #1f6fa5;
+  border-color: #1f6fa5;
+  color: #ffffff;
+}
+
+.alert-success {
+  background-color: #117a65;
+  border-color: #117a65;
+  color: #ffffff;
+}
+
+.alert-warning {
+  background-color: #f39c12;
+  border-color: #f39c12;
+  color: #1b1f2a;
+}
+
+.alert-secondary {
+  background-color: #566566;
+  border-color: #566566;
+  color: #ffffff;
+}
+
+/* The same for the secondary button (white on #95a5a6 was 2.56:1) */
+.btn-secondary {
+  --bs-btn-color: #ffffff;
+  --bs-btn-bg: #566566;
+  --bs-btn-border-color: #566566;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #444f50;
+  --bs-btn-hover-border-color: #3d4748;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #3d4748;
+  --bs-btn-active-border-color: #364041;
+  --bs-btn-disabled-color: #ffffff;
+  --bs-btn-disabled-bg: #566566;
+  --bs-btn-disabled-border-color: #566566;
+}
+
+/* Outline buttons on the light page: Flatly's colours are 2.1 to 3.4:1 against it. (On the dark
+   theme they are 5.0 to 8.0:1 already, so they are left alone there.) */
+:root:not([data-bs-theme="dark"]) .btn-outline-danger {
+  --bs-btn-color: #c0392b;
+  --bs-btn-border-color: #c0392b;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #c0392b;
+  --bs-btn-hover-border-color: #c0392b;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #c0392b;
+  --bs-btn-active-border-color: #c0392b;
+  --bs-btn-disabled-color: #c0392b;
+  --bs-btn-disabled-border-color: #c0392b;
+}
+
+:root:not([data-bs-theme="dark"]) .btn-outline-info {
+  --bs-btn-color: #1f6fa5;
+  --bs-btn-border-color: #1f6fa5;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #1f6fa5;
+  --bs-btn-hover-border-color: #1f6fa5;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #1f6fa5;
+  --bs-btn-active-border-color: #1f6fa5;
+  --bs-btn-disabled-color: #1f6fa5;
+  --bs-btn-disabled-border-color: #1f6fa5;
+}
+
+:root:not([data-bs-theme="dark"]) .btn-outline-success {
+  --bs-btn-color: #0b705c;
+  --bs-btn-border-color: #0b705c;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #0b705c;
+  --bs-btn-hover-border-color: #0b705c;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #0b705c;
+  --bs-btn-active-border-color: #0b705c;
+  --bs-btn-disabled-color: #0b705c;
+  --bs-btn-disabled-border-color: #0b705c;
+}
+
+:root:not([data-bs-theme="dark"]) .btn-outline-secondary {
+  --bs-btn-color: #566566;
+  --bs-btn-border-color: #566566;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: #566566;
+  --bs-btn-hover-border-color: #566566;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: #566566;
+  --bs-btn-active-border-color: #566566;
+  --bs-btn-disabled-color: #566566;
+  --bs-btn-disabled-border-color: #566566;
 }
 
 /* ---------------------------------------------------------------------- */

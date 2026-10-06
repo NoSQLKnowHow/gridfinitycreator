@@ -442,7 +442,7 @@ function libraryLoadAndClose(configId, formId) {
     }
 
     // Switch to the form tab if not already visible and refresh preview
-    const tab = document.querySelector(`[href="#${formId}"]`);
+    const tab = document.querySelector(`[data-bs-toggle="tab"][data-bs-target="#${formId}"]`);
     if (tab) {
       const tabInstance = new bootstrap.Tab(tab);
       const refreshPreview = () => {
@@ -612,7 +612,7 @@ function applySharedConfigFromUrl() {
 
   // Switching the tab triggers the existing shown.bs.tab handler,
   // which resizes the viewer and regenerates the preview.
-  const tab = document.querySelector(`[data-bs-toggle="tab"][href="#${formId}"]`);
+  const tab = document.querySelector(`[data-bs-toggle="tab"][data-bs-target="#${formId}"]`);
   if (tab) {
     new bootstrap.Tab(tab).show();
   }
