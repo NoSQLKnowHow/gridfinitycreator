@@ -2,6 +2,7 @@ import datetime
 import logging
 import logging.handlers
 import os
+import secrets
 import sys
 import threading
 import waitress
@@ -20,10 +21,19 @@ from generators.common.errors import SettingsError
 from grid_constants import *
 from version import __version__
 
+def secret_key(environ=os.environ):
+    """The key Flask uses to sign the session and CSRF tokens.
+
+       Set GFG_SECRET_KEY to keep it fixed. Without it a fresh random key is made each
+       time the server starts (this app keeps nothing on the server that depends on it;
+       pages left open across a restart are told to reload). It must never be a constant
+       in the source: this repository is public, so anyone could forge tokens with it."""
+    return environ.get('GFG_SECRET_KEY') or secrets.token_hex(32)
+
 app = Flask(__name__)
 
-# Flask-WTF requires an encryption key - the string can be anything
-app.config['SECRET_KEY'] = 'hPqPfz!y=moJ!MVO{*tqQO$_Itoo:'
+# Flask-WTF requires an encryption key
+app.config['SECRET_KEY'] = secret_key()
 
 # This app is anonymous and stateless, so the default one-hour expiry of CSRF tokens
 # only ever made a page that had been left open fail to submit
@@ -228,14 +238,31 @@ def index_post():
         set_gridspec_cookie(response, constants)
     return response
 
+def server_settings(environ=os.environ):
+    """Where and how to serve, from the environment: (host, port, debug).
+
+       Production listens on all IPv4 interfaces (a container needs that). Naming the
+       address explicitly also avoids the old '*' wildcard, which made the server
+       bind IPv6 too and fail to start on a host with IPv6 disabled.
+
+       The debug server includes an interactive debugger that can run code on the
+       machine, so it listens on this machine only unless GFG_BIND says otherwise."""
+    debug = environ.get('FLASK_DEBUG') == 'True'
+
+    port = int(environ.get('FLASK_PORT', 5000))
+    if debug:
+        port = int(environ.get('PORT', port))
+
+    host = environ.get('GFG_BIND') or ('127.0.0.1' if debug else '0.0.0.0')
+    return host, port, debug
+
 class serverFilter():
     """Filter records coming from the server out of the access log"""
     def filter(self, record):
         return (record.name != 'werkzeug') and (record.name != 'waitress')
 
 if __name__ == "__main__":
-    portNum = 5000 if 'FLASK_PORT' not in os.environ else os.environ['FLASK_PORT']
-    debugMode = False if 'FLASK_DEBUG' not in os.environ else (os.environ['FLASK_DEBUG'] == 'True')
+    host, port, debugMode = server_settings()
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
@@ -279,9 +306,8 @@ if __name__ == "__main__":
     threading.Thread(target=model_builder.warm_up, daemon=True).start()
 
     if debugMode:
-        logger.info("Started in debug mode")
-        port = int(os.environ.get('PORT', portNum))
-        app.run(debug=True, host='0.0.0.0', port=port)
+        logger.info("Started in debug mode, listening on %s:%s", host, port)
+        app.run(debug=True, host=host, port=port)
     else:
-        logger.info("Started in production mode")
-        waitress.serve(app, listen='*:' + str(portNum), threads=job_limiter.server_threads(limiter))
+        logger.info("Started in production mode, listening on %s:%s", host, port)
+        waitress.serve(app, host=host, port=port, threads=job_limiter.server_threads(limiter))
