@@ -1,0 +1,2 @@
+# Vendored third-party files must stay byte-for-byte as published (tests/test_assets.py checks their checksums)
+static/vendor/** -text
