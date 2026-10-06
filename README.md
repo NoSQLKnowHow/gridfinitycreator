@@ -64,6 +64,7 @@ Everything has a default that works for a small private network, so none of this
 | `GFG_MAX_HOLES` | `600` | Most holes a holey bin may have |
 | `GFG_TRUSTED_PROXIES` | none | Reverse proxies whose `X-Forwarded-For`, `-Proto` and `-Host` headers are believed: addresses or networks, separated by commas (for example `172.18.0.0/16`). Leave it empty when visitors connect directly. See [Reverse proxy](#reverse-proxy) |
 | `GFG_PROXY_HOPS` | `1` | How many proxies a request passes through before it reaches the server (only matters with `GFG_TRUSTED_PROXIES`) |
+| `GFG_HSTS_MAX_AGE` | none | Seconds for which browsers are told to insist on https for this host (`Strict-Transport-Security`). Not sent unless set, and only over https. See [Security](#security) |
 | `GFG_LOG_CLIENT_IP` | `true` | Set to `false` (or `0`, `no`, `off`) to leave visitors' addresses out of the log. See [Security](#security) |
 
 If you expose an instance to the internet, lower the limits (`GFG_MAX_QUEUE`, `GFG_QUEUE_TIMEOUT`, `GFG_BUILD_TIMEOUT` and the three `GFG_MAX_*` limits) so one visitor cannot keep the server busy for long.
@@ -71,6 +72,10 @@ If you expose an instance to the internet, lower the limits (`GFG_MAX_QUEUE`, `G
 ### Security
 
 The container runs as an ordinary user (uid 1000) on a read-only filesystem with no extra privileges and no Linux capabilities. It writes only to two size-limited RAM disks (`/tmpfiles` for the generated files and `/tmp`) and to the `/logs` volume. The compose files set this up, and CI starts the image exactly like that and uses it.
+
+Every response carries security headers. The main one is a Content-Security-Policy that lets the page run scripts and load styles, fonts, images and data from the server itself only, so a script that got into the page by mistake would not be run. That is why the page has no inline scripts or styles, and why anything from another host (a font, an analytics script, an embed) does not load until the policy in `security_headers.py` is widened for it. The other headers keep the page from being framed, stop browsers guessing file types, and switch off camera, microphone and location access.
+
+`Strict-Transport-Security` is not sent by default: a browser that has been told keeps refusing plain http for the host until the time is up, which locks you out of an instance whose https is not working yet, or one that is only meant for a private network. To send it, set `GFG_HSTS_MAX_AGE` to a number of seconds (for example `15552000`, 180 days). It is only sent over https, and behind a reverse proxy only when `GFG_TRUSTED_PROXIES` is set, so that the server knows the visitor used https. If your proxy already sends it, leave the setting alone.
 
 The server keeps one log, `access.log` in the log directory, which rotates (the current file and ten older ones, up to 1 MB each) so it never grows beyond about 11 MB. It records every model that is generated, with the visitor's address. Where addresses count as personal data, set `GFG_LOG_CLIENT_IP=false` and the log records `-` instead. Behind a reverse proxy the address is the visitor's only if `GFG_TRUSTED_PROXIES` is set (see [Reverse proxy](#reverse-proxy)).
 

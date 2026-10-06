@@ -64,8 +64,10 @@ def main():
     client = Client(arguments.url)
     page = wait_for(client, arguments.wait)
     failures = []
+    ran = []
 
     def check(name, test):
+        ran.append(name)
         try:
             test()
             print(f"ok    {name}")
@@ -102,6 +104,12 @@ def main():
             assert len(body) > 200 and body.startswith(magic) if magic else len(body) > 200, f"{len(body)} bytes, starts {body[:12]!r}"
         return run
 
+    def security_headers():
+        _, headers, _ = client.request("/")
+        policy = headers.get("Content-Security-Policy", "")
+        assert "script-src 'self'" in policy and "unsafe" not in policy, policy or "no Content-Security-Policy"
+        assert headers.get("X-Content-Type-Options") == "nosniff", headers.get("X-Content-Type-Options")
+
     def refused():
         status, _, body = client.request("/", client.form(token, sizeUnitsX="99"))
         assert status == 422, f"HTTP {status}"
@@ -114,8 +122,9 @@ def main():
     check("a download (STL)", download("stl", None))
     check("a download (3MF)", download("3mf", b"PK"))
     check("a refused request", refused)
+    check("the security headers", security_headers)
 
-    print(f"\n{len(failures)} of 7 checks failed" if failures else "\nall checks passed")
+    print(f"\n{len(failures)} of {len(ran)} checks failed" if failures else "\nall checks passed")
     return 1 if failures else 0
 
 

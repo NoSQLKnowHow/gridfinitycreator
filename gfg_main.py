@@ -18,6 +18,7 @@ import gridspec
 import job_limiter
 import model_builder
 import proxy_trust
+import security_headers
 from generator_loader import load_generators
 from generators.common import settings_form
 from generators.common.errors import SettingsError
@@ -55,6 +56,13 @@ logger = logging.getLogger('GFG')
 
 # Bounds how many models are built at once (see job_limiter.py for the settings)
 limiter = job_limiter.JobLimiter.from_env()
+
+# How long browsers are told to insist on https for this host; nothing unless asked (see security_headers.py)
+HSTS_MAX_AGE = security_headers.parse_hsts_max_age(os.environ.get('GFG_HSTS_MAX_AGE'))
+
+@app.after_request
+def add_security_headers(response):
+    return security_headers.apply(response, request.is_secure, HSTS_MAX_AGE)
 
 # What the page sends with a submit so that it can tell when the answer has arrived (generate_feedback.js)
 DOWNLOAD_TOKEN = re.compile(r'[A-Za-z0-9_-]{8,64}')
