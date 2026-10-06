@@ -208,7 +208,12 @@ body::after {
 
 .gfg-hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.gfg-footer {
+  color: var(--gfg-text-muted);
 }
 
 /* Glass icon chips (theme toggle, library, settings) */
@@ -276,7 +281,13 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
 
 .nav-tabs {
   display: inline-flex;
-  flex-wrap: wrap;
+  /* One line that scrolls sideways when the tabs do not fit (a phone), rather than
+     wrapping onto three lines */
+  position: relative; /* so the tabs' offsetLeft is measured from the strip (tabs.js) */
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 0.2rem;
   background: color-mix(in srgb, var(--gfg-surface-2) 80%, transparent);
   border: 1px solid var(--gfg-border);
@@ -290,7 +301,12 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   margin: 0;
 }
 
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
 .nav-tabs .nav-link {
+  white-space: nowrap;
   border: none;
   margin: 0;
   border-radius: 999px;
@@ -744,5 +760,20 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
 
   .btn-primary:hover::after {
     transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Phones                                                                  */
+/* ---------------------------------------------------------------------- */
+
+@media (max-width: 575.98px) {
+  .gfg-shell {
+    padding: 0.25rem 0.75rem 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .gfg-hero {
+    padding: 1.25rem 0.25rem 0.75rem;
   }
 }

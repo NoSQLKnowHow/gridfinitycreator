@@ -78,10 +78,10 @@
       </div>
       <div id="about-{{form.id}}" class="collapse">
         <div class="row px-3 pb-3 pt-2">
-          <div class="col-9">
+          <div class="col-12 col-md-9">
             {{ form.get_description() | inner_render({"grid": grid}) | safe }}
           </div>
-          <div class="col">
+          <div class="col-12 col-md-3 mt-3 mt-md-0">
             <img src="/static/{{form.id}}_sample.jpg" class="img-fluid rounded mx-auto d-block" />
           </div>
         </div>
@@ -165,15 +165,14 @@
   {% include 'templates/settings_offcanvas.html.j2' %}
 </div>
 
-<div class="row text-center pb-4">
-  <div class="col fw-lighter fs-6 text-secondary">
-    <p>Gridfinity Creator v{{version}}. &copy;2024 - {{year}} Jeroen Bouwens.</p>
-    <p><a class="fw-lighter" href="https://github.com/jeroen94704/gridfinitycreator">Source</a>.
-      <a href="https://discord.gg/fBb2gpzKca">Discord</a>.
-      <a href="https://ko-fi.com/jeroen94704">Donate</a>.
-    </p>
-  </div>
-</div>
+{# A footer, not a bootstrap .row: a row outside a padded container pushes the page sideways #}
+<footer class="gfg-footer text-center fw-lighter fs-6 pb-4 px-3">
+  <p>Gridfinity Creator v{{version}}. &copy;2024 - {{year}} Jeroen Bouwens.</p>
+  <p><a class="fw-lighter" href="https://github.com/jeroen94704/gridfinitycreator">Source</a>.
+    <a href="https://discord.gg/fBb2gpzKca">Discord</a>.
+    <a href="https://ko-fi.com/jeroen94704">Donate</a>.
+  </p>
+</footer>
 
 <div id="help-modal" class="modal fade " tabindex="-1">
   <div class="modal-dialog modal-lg">
