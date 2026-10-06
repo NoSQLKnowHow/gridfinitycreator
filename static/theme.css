@@ -679,6 +679,16 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   cursor: pointer;
 }
 
+.gfg-layout-hit:focus {
+  outline: none;
+}
+
+.gfg-layout-hit:focus-visible {
+  fill: rgba(var(--gfg-accent-rgb), 0.25);
+  stroke: var(--gfg-text);
+  stroke-width: 2;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Real-dimensions readout                                                 */
 /* ---------------------------------------------------------------------- */

@@ -36,10 +36,47 @@ function layoutEditorState(form) {
   return { cX, cY, removed };
 }
 
+/**
+ * What a screen reader announces for a wall. Columns count from the left and rows from the
+ * front of the bin (row 1 is nearest the viewer in the 3D preview), both from 1.
+ */
+function layoutSegmentLabel(kind, i, j) {
+  if (kind === 'v') {
+    return `Divider wall between column ${i} and column ${i + 1}, row ${j + 1}`;
+  }
+  return `Divider wall between row ${j} and row ${j + 1}, column ${i + 1}`;
+}
+
+/**
+ * Which wall an arrow key moves to, among `count` walls in drawing order, or null for any other
+ * key. The walls form one tab stop; the arrows move within it (otherwise an 8 x 8 layout would be
+ * over a hundred tab stops).
+ */
+function layoutNextIndex(current, count, key) {
+  if (!count) return null;
+  switch (key) {
+    case 'ArrowRight':
+    case 'ArrowDown':
+      return Math.min(count - 1, current + 1);
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      return Math.max(0, current - 1);
+    case 'Home':
+      return 0;
+    case 'End':
+      return count - 1;
+    default:
+      return null;
+  }
+}
+
 function layoutEditorRender(formId) {
   const container = document.getElementById(`layout-editor-${formId}`);
   const form = document.getElementById(formId + '_form');
   if (!container || !form || !form.elements['removedWalls']) return;
+
+  // Re-drawing replaces every element, so remember which wall had the keyboard focus
+  const focusedSegment = container.contains(document.activeElement) ? document.activeElement.dataset.seg : null;
 
   const { cX, cY, removed } = layoutEditorState(form);
   const removedKeys = new Set(removed.map(s => s.join(',')));
@@ -53,7 +90,8 @@ function layoutEditorRender(formId) {
   const pad = 6;
 
   const svg = [];
-  svg.push(`<svg viewBox="0 0 ${w + 2 * pad} ${h + 2 * pad}" width="${w + 2 * pad}" height="${h + 2 * pad}" role="img">`);
+  svg.push(`<svg viewBox="0 0 ${w + 2 * pad} ${h + 2 * pad}" width="${w + 2 * pad}" height="${h + 2 * pad}" ` +
+    `role="group" aria-label="Compartment layout seen from above. Each divider wall can be removed to merge two compartments.">`);
 
   // Bin outline. Drawn to MATCH the 3D preview's orientation: model row 0 is
   // the front of the bin, which the preview shows nearest the viewer - so row
@@ -68,6 +106,8 @@ function layoutEditorRender(formId) {
     const key = `${kind},${i},${j}`;
     const isRemoved = removedKeys.has(key);
     const title = `<title>${isRemoved ? 'Click to restore this wall' : 'Click to remove this wall'}</title>`;
+    // A wall is a checkbox: checked while it is there. Only one is a tab stop (see below)
+    const semantics = `tabindex="-1" role="checkbox" aria-checked="${!isRemoved}" aria-label="${layoutSegmentLabel(kind, i, j)}"`;
     svg.push(
       `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ` +
       `class="gfg-layout-wall${isRemoved ? ' removed' : ''}" data-seg="${key}"/>`
@@ -79,7 +119,7 @@ function layoutEditorRender(formId) {
     const rh = y1 === y2 ? HIT : Math.abs(y2 - y1);
     svg.push(
       `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" ` +
-      `class="gfg-layout-hit" data-seg="${key}">${title}</rect>`
+      `class="gfg-layout-hit" data-seg="${key}" ${semantics}>${title}</rect>`
     );
   };
 
@@ -104,10 +144,32 @@ function layoutEditorRender(formId) {
   svg.push('<div class="gfg-layout-caption">front of bin</div>');
   container.innerHTML = svg.join('');
 
-  container.querySelectorAll('.gfg-layout-hit').forEach(hit => {
-    hit.addEventListener('click', () => {
-      const [kind, i, j] = hit.dataset.seg.split(',');
-      layoutEditorToggle(formId, [kind, parseInt(i, 10), parseInt(j, 10)]);
+  const hits = [...container.querySelectorAll('.gfg-layout-hit')];
+
+  // One tab stop for the whole editor: the wall that had the focus, else the first
+  const stop = hits.find(hit => hit.dataset.seg === focusedSegment) || hits[0];
+  if (stop) stop.setAttribute('tabindex', '0');
+  if (focusedSegment && stop && stop.dataset.seg === focusedSegment) stop.focus();
+
+  const toggle = hit => {
+    const [kind, i, j] = hit.dataset.seg.split(',');
+    layoutEditorToggle(formId, [kind, parseInt(i, 10), parseInt(j, 10)]);
+  };
+
+  hits.forEach((hit, index) => {
+    hit.addEventListener('click', () => toggle(hit));
+    hit.addEventListener('keydown', event => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        toggle(hit);
+        return;
+      }
+      const next = layoutNextIndex(index, hits.length, event.key);
+      if (next === null) return;
+      event.preventDefault();
+      hits.forEach(other => other.setAttribute('tabindex', '-1'));
+      hits[next].setAttribute('tabindex', '0');
+      hits[next].focus();
     });
     hit.addEventListener('mouseenter', () => {
       container.querySelector(`.gfg-layout-wall[data-seg="${hit.dataset.seg}"]`)?.classList.add('hover');
@@ -160,7 +222,9 @@ function layoutEditorInitAll() {
   });
 }
 
-if (document.readyState === 'loading') {
+if (typeof module === 'object' && module.exports) {
+  module.exports = { layoutSegmentLabel, layoutNextIndex }; // Node, for the tests
+} else if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', layoutEditorInitAll);
 } else {
   layoutEditorInitAll();
