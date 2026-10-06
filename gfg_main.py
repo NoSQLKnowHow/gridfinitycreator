@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import sys
+import tempfile
 import threading
 import waitress
 
@@ -317,6 +318,23 @@ def server_settings(environ=os.environ):
     host = environ.get('GFG_BIND') or ('127.0.0.1' if debug else '0.0.0.0')
     return host, port, debug
 
+def open_log_file(log_dir, fallback_dir=None):
+    """The rotating log handler, writing in the first of log_dir and a temporary directory where a
+       file can actually be made: (handler, directory), or (None, None) if there is nowhere (the
+       server then logs to the console only).
+
+       A directory that exists is not necessarily writable. A container that runs as an ordinary user
+       with a volume that Docker created as root has /logs, but cannot make a file in it."""
+    fallback_dir = fallback_dir or os.path.join(tempfile.gettempdir(), 'gridfinitycreator-logs')
+    for directory in (log_dir, fallback_dir):
+        try:
+            os.makedirs(directory, exist_ok=True)
+            handler = logging.handlers.RotatingFileHandler(os.path.join(directory, 'access.log'), maxBytes=1000000, backupCount=10)
+            return handler, directory
+        except OSError:
+            continue
+    return None, None
+
 class serverFilter():
     """Filter records coming from the server out of the access log"""
     def filter(self, record):
@@ -341,21 +359,21 @@ if __name__ == "__main__":
     default_log_dir = os.path.join(base_dir, 'logs')
     log_dir = os.environ.get('GFG_LOG_DIR', default_log_dir)
 
-    try:
-        os.makedirs(log_dir, exist_ok=True)
-    except OSError:
-        log_dir = os.path.join('/tmp', 'gridfinitycreator-logs')
-        os.makedirs(log_dir, exist_ok=True)
-
-    # Configure rotating file logger
-    fh = logging.handlers.RotatingFileHandler(os.path.join(log_dir, 'access.log'), maxBytes=1000000, backupCount=10)
-    fh.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
-    fh.setFormatter(formatter)
-    fh.addFilter(serverFilter())
-    root.addHandler(fh)
+    # Configure rotating file logger (if there is anywhere to write it)
+    requested_log_dir = log_dir
+    fh, log_dir = open_log_file(requested_log_dir)
+    if fh is not None:
+        fh.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s')
+        fh.setFormatter(formatter)
+        fh.addFilter(serverFilter())
+        root.addHandler(fh)
 
     logger = logging.getLogger('GFG')
+    if fh is None:
+        logger.warning("Cannot write a log file in %s or in the temporary directory: logging to the console only", requested_log_dir)
+    elif log_dir != requested_log_dir:
+        logger.warning("Cannot write to %s: the log file is in %s instead", requested_log_dir, log_dir)
 
     try:
         generators = load_generators()
