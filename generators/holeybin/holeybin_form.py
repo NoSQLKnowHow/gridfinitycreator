@@ -48,12 +48,13 @@ class Form(FlaskForm):
         self.addScrewHoles.description = help.get_magnet_help()
         self.exportFormat.description = help.get_exportformat_help()
 
-        self.numHolesX.onChangedCallback = "onNumHolesChanged()"
-        self.numHolesY.onChangedCallback = "onNumHolesChanged()"
-        self.sizeUnitsX.onChangedCallback = "onBinSizeChanged()"
-        self.sizeUnitsY.onChangedCallback = "onBinSizeChanged()"
-        self.keepoutDiameter.onChangedCallback = "onHoleSizeChanged()"
-        self.holeSize.onChangedCallback = "onHoleSizeChanged()"
+        # What the page does when the field changes (see static/holeybin_form.js)
+        self.numHolesX.changeAction = "num-holes-changed"
+        self.numHolesY.changeAction = "num-holes-changed"
+        self.sizeUnitsX.changeAction = "bin-size-changed"
+        self.sizeUnitsY.changeAction = "bin-size-changed"
+        self.keepoutDiameter.changeAction = "hole-size-changed"
+        self.holeSize.changeAction = "hole-size-changed"
         
     def get_rows(self):
         return [

@@ -30,7 +30,11 @@
                     {% if field.type == 'SelectField' %}
                         {{ field(class_="form-select") }}
                     {% else %}
-                        {{ field(class_="form-control", onchange_=field.onChangedCallback) }}
+                        {% if field.changeAction %}
+                        {{ field(class_="form-control", data_change=field.changeAction) }}
+                        {% else %}
+                        {{ field(class_="form-control") }}
+                        {% endif %}
                     {% endif %}
                     {% endif %}
                 </div>
@@ -44,73 +48,7 @@
 <div class="row justify-content-center">
     <div class="col text-center">
         <button type="submit" id="{{form.id}}_button" name="{{form.id}}" class="btn btn-primary">
-            <!-- onclick="onClick{{form.id}}()"> -->
             <span>Generate</span>
         </button>
-        <!-- <input class="btn btn-primary"  type="submit" value="Generate"> -->
     </div>
 </div>
-
-<script type="text/javascript">
-    let binSizeLeading = false;
-
-    function recalculate()
-    {
-        let formElements = document.getElementById('{{form.id}}_form').elements;
-
-        let keepoutDiameter = formElements['keepoutDiameter'].value;
-
-        if(binSizeLeading)
-        {
-            // One of the numhole settings was changed, so recalculate the required binsize based on the number of holes
-            let sizeUnitsX = formElements['sizeUnitsX'].value;
-            let sizeUnitsY = formElements['sizeUnitsY'].value;
-
-            let numHolesX = Math.floor((sizeUnitsX*42.0 - 2.0*1.9 - 0.5) / keepoutDiameter);
-            let numHolesY = Math.floor((sizeUnitsY*42.0 - 2.0*1.9 - 0.5) / keepoutDiameter);
-
-            formElements['numHolesX'].value = numHolesX;
-            formElements['numHolesY'].value = numHolesY;
-        }
-        else
-        {
-            // One of the numhole settings was changed, so recalculate the required binsize based on the number of holes
-            let numHolesX = formElements['numHolesX'].value;
-            let numHolesY = formElements['numHolesY'].value;
-            let keepoutDiameter = formElements['keepoutDiameter'].value;
-
-            let sizeUnitsX = Math.ceil((numHolesX * keepoutDiameter + 2.0*1.9 + 0.5) / 42.0);
-            let sizeUnitsY = Math.ceil((numHolesY * keepoutDiameter + 2.0*1.9 + 0.5) / 42.0);
-
-            formElements['sizeUnitsX'].value = sizeUnitsX;
-            formElements['sizeUnitsY'].value = sizeUnitsY;
-        }
-    }
-
-    function onNumHolesChanged() {
-        let formElements = document.getElementById('{{form.id}}_form').elements;
-
-        binSizeLeading = false;
-
-        recalculate();
-    }
-
-
-
-    function onBinSizeChanged() {
-        // One of the binsize settings was changed, so recalculate the number of holes based on the binsize
-        let formElements = document.getElementById('{{form.id}}_form').elements;
-
-        binSizeLeading = true;
-
-        recalculate();
-    }
-
-    function onHoleSizeChanged() {
-        let formElements = document.getElementById('{{form.id}}_form').elements;
-
-        binSizeLeading = false;
-
-        recalculate();
-    }
-</script>

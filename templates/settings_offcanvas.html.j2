@@ -19,7 +19,7 @@
         </div>
         <hr />
         <h3 class="h5" id="grid-presets-title">Presets</h3>
-        <select class="form-select" id="grid-presets" aria-labelledby="grid-presets-title" onchange="presetChanged()">
+        <select class="form-select" id="grid-presets" aria-labelledby="grid-presets-title">
             {% for name, preset_x, preset_y, preset_z in grid_presets %}
             <option value="{{ name }}" data-x="{{ preset_x|mm }}" data-y="{{ preset_y|mm }}" data-z="{{ preset_z|mm }}"{% if name == grid_preset %} selected{% endif %}>{{ name }}</option>
             {% endfor %}
