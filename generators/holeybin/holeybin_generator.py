@@ -112,15 +112,23 @@ class Generator:
 
         # Add the outer wall
         result.add(self.outer_wall(plane))
-        
+
+        # Fuse the base and the wall into one solid *before* cutting the holes.
+        # Cutting replaces the stack with a single compound, so without a stacking
+        # lip nothing would be left to fuse the two and the bin would be exported
+        # as two touching but separate solids.
+        result = result.combine(clean=True)
+
         # Continue from the top of the bin
         plane = result.faces(">Z").workplane()
 
         # Create the hole-grid in the same plane as the previous operation
         result = self.holey_grid(plane)
 
-        # Add the stacking lip
-        result.add(self.stacking_lip(plane))
+        # Add the stacking lip (there is none to add when it is disabled)
+        lip = self.stacking_lip(plane)
+        if lip is not None:
+            result.add(lip)
 
         # Combine everything together
         result = result.combine(clean=True)
