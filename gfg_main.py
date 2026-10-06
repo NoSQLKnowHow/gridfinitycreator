@@ -17,6 +17,7 @@ import gridspec
 import job_limiter
 import model_builder
 from generator_loader import load_generators
+from generators.common import settings_form
 from generators.common.errors import SettingsError
 from grid_constants import *
 from version import __version__
@@ -53,6 +54,10 @@ logger = logging.getLogger('GFG')
 
 # Bounds how many models are built at once (see job_limiter.py for the settings)
 limiter = job_limiter.JobLimiter.from_env()
+
+def new_form(gen):
+    """A generator's form, with field ids that are unique on the page (see make_ids_unique)"""
+    return settings_form.make_ids_unique(gen.get_form())
 
 def format_mm(value):
     """A length without a pointless ".0": 42.0 -> "42", 39.5 -> "39.5" """
@@ -146,7 +151,7 @@ def unexpected_error(e):
 
     logger.exception("Unhandled error while serving %s %s", request.method, request.path)
 
-    forms = [gen.get_form() for gen in generators]
+    forms = [new_form(gen) for gen in generators]
     active_form = next((f.id for f in forms if f.id in request.form), '') if request.method == 'POST' else ''
     return error_response([UNEXPECTED_ERROR_MESSAGE], 500, forms, current_grid(), active_form)
 
@@ -180,7 +185,7 @@ def index_get():
 
     # Create a list of forms to pass to Jinja for rendering
     for gen in generators:
-        form_list.append(gen.get_form())
+        form_list.append(new_form(gen))
 
     response = make_response(render_index(form_list, constants))
 
@@ -239,7 +244,7 @@ def index_post():
     form_list = []
 
     for gen in generators:
-        f = gen.get_form()
+        f = new_form(gen)
         form_list.append(f)
 
         # Find the generator whose form was submitted

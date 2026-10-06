@@ -95,8 +95,9 @@ def form_html(client, form_id):
 
 
 def is_checked(form_markup, field_name):
-    """Whether the checkbox <input id=field_name> in this form markup is rendered checked"""
-    tag = re.search(rf'<input[^>]*\bid="{field_name}"[^>]*>', form_markup).group(0)
+    """Whether the checkbox <input name=field_name> in this form markup is rendered checked
+       (found by name: the ids are prefixed with the form's name, the names are what is posted)"""
+    tag = re.search(rf'<input[^>]*\bname="{field_name}"[^>]*>', form_markup).group(0)
     return re.search(r"\bchecked\b", tag) is not None
 
 

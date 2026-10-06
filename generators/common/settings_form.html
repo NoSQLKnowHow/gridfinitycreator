@@ -16,16 +16,16 @@
                             {% endif %}
                             {{ field.label(class_="form-check-label") }}
                         </div>
-                        <span class="help-button badge rounded-pill bg-primary" style="cursor: pointer;">?
-                            <div id="content" class="d-none">{{ field.description | inner_render({"grid": grid}) | safe }}</div>
-                        </span>
+                        <button type="button" class="help-button badge rounded-pill bg-primary" aria-haspopup="dialog"
+                            aria-label="Help: {{ field.label.text | e }}" data-help-target="{{ field.id }}_help">?</button>
+                        <div id="{{ field.id }}_help" class="help-content d-none">{{ field.description | inner_render({"grid": grid}) | safe }}</div>
                     </div>
                     {% else %}
                     <div class="d-flex align-items-center gap-1 mb-1">
                         {{ field.label(class_="form-label mb-0") }}
-                        <span class="help-button badge rounded-pill bg-primary" style="cursor: pointer;">?
-                            <div id="content" class="d-none">{{ field.description | inner_render({"grid": grid}) | safe }}</div>
-                        </span>
+                        <button type="button" class="help-button badge rounded-pill bg-primary" aria-haspopup="dialog"
+                            aria-label="Help: {{ field.label.text | e }}" data-help-target="{{ field.id }}_help">?</button>
+                        <div id="{{ field.id }}_help" class="help-content d-none">{{ field.description | inner_render({"grid": grid}) | safe }}</div>
                     </div>
                     {% if field.type == 'SelectField' %}
                     {{ field(class_="form-select") }}

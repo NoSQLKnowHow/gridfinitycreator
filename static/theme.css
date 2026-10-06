@@ -452,6 +452,16 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
 /* Help badges                                                            */
 /* ---------------------------------------------------------------------- */
 
+.help-button {
+  border: 0;
+  cursor: pointer;
+}
+
+.help-button:focus-visible {
+  outline: 3px solid var(--gfg-text);
+  outline-offset: 2px;
+}
+
 .help-button.bg-primary {
   background: linear-gradient(110deg, var(--gfg-accent), var(--gfg-accent-2)) !important;
   transition: transform 0.15s ease, box-shadow 0.15s ease;

@@ -19,7 +19,7 @@ def test_checkbox_defaults(client):
 def test_every_field_has_help_text(client):
     """Every "?" badge used to open an empty pop-up for this generator"""
     form = form_html(client, "solidbin")
-    blocks = re.findall(r'<div id="content" class="d-none">(.*?)</div>', form, flags=re.S)
+    blocks = re.findall(r'<div id="[^"]*" class="help-content d-none">(.*?)</div>', form, flags=re.S)
 
     assert len(blocks) >= 9  # size x3, stacking lip, 4 magnet options, export format
     assert all(block.strip() for block in blocks)

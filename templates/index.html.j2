@@ -174,11 +174,14 @@
   </p>
 </footer>
 
-<div id="help-modal" class="modal fade " tabindex="-1">
+<div id="help-modal" class="modal fade" tabindex="-1" aria-label="Help">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-body">
-        <p></p>
+        <div id="help-modal-text"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -253,21 +256,26 @@
 <script>
   document.body.addEventListener('click', event => {
     // Only respond to help buttons
-    if (!event.target.matches('.help-button')) {
+    const helpButton = event.target.closest('.help-button');
+    if (!helpButton) {
       return;
     }
 
-    // Check if there is any content present inside the (hidden) content block
+    // The button names the (hidden) block holding its text
     const sourceModalElement = document.getElementById('help-modal');
     const sourceModal = bootstrap.Modal.getOrCreateInstance(sourceModalElement);
-    helpText = event.target.querySelector('[id^="content"]').innerHTML;
+    const helpSource = document.getElementById(helpButton.dataset.helpTarget);
+    let helpText = helpSource ? helpSource.innerHTML : "";
 
     if (helpText === "") {
       helpText = "There is no extra information available for this field"
     }
 
-    sourceModalElement.querySelector('p').innerHTML = helpText
+    document.getElementById('help-modal-text').innerHTML = helpText
 
+    // Bootstrap returns focus to the opener only for modals opened by data-bs-toggle;
+    // this one is opened from here, so a keyboard user would otherwise be left at the top of the page
+    sourceModalElement.addEventListener('hidden.bs.modal', () => helpButton.focus(), { once: true });
     sourceModal.show();
   }, false);
 

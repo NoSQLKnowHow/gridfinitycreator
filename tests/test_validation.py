@@ -75,7 +75,7 @@ def test_limits_are_also_published_to_the_browser(client):
     form = form_html(client, "classicbin")
 
     import re
-    tag = re.search(r'<input[^>]*\bid="sizeUnitsX"[^>]*>', form).group(0)
+    tag = re.search(r'<input[^>]*\bname="sizeUnitsX"[^>]*>', form).group(0)
     assert 'min="1"' in tag and 'max="6"' in tag
 
 
