@@ -174,3 +174,68 @@ def test_requirements_say_where_cadquery_and_numpy_come_from():
     assert "cadquery" in text and "numpy" in text
 
 
+# ---------------------------------------------------------------- CI
+
+def workflow(name):
+    return yaml.load(read(os.path.join(".github", "workflows", name)), Loader=StrictLoader)
+
+
+def test_ci_runs_on_pushes_and_pull_requests():
+    triggers = workflow("ci.yml")[True]      # YAML reads the key `on` as True
+
+    assert "push" in triggers and "pull_request" in triggers
+
+
+def test_ci_tests_the_code_and_the_image():
+    jobs = workflow("ci.yml")["jobs"]
+
+    assert {"lint", "test", "image"} <= set(jobs)
+
+
+def test_ci_builds_the_image_and_tests_inside_it_and_runs_it_hardened():
+    steps = "\n".join(str(step.get("run", "")) for step in workflow("ci.yml")["jobs"]["image"]["steps"])
+
+    assert "docker build" in steps
+    assert "pytest" in steps                                   # the tests, in the image's own conda environment
+    for flag in ("--read-only", "--cap-drop", "no-new-privileges", "--user"):
+        assert flag in steps                                   # and the image as the compose files run it
+    assert "smoke_test" in steps
+
+
+def test_ci_pins_its_runner_and_its_actions_to_explicit_versions():
+    ci = workflow("ci.yml")
+    for job_name, job in ci["jobs"].items():
+        assert job["runs-on"] != "ubuntu-latest", job_name
+        for step in job["steps"]:
+            if "uses" in step:
+                assert re.search(r"@v?\d", step["uses"]), (job_name, step["uses"])   # not @main, not @latest
+
+
+def test_dependabot_watches_python_docker_and_actions():
+    config = yaml.safe_load(read(os.path.join(".github", "dependabot.yml")))
+
+    assert {u["package-ecosystem"] for u in config["updates"]} == {"pip", "docker", "github-actions"}
+
+
+def test_the_upstream_health_check_does_not_run_on_forks():
+    """It pinged someone else's production site every day from every fork"""
+    job = workflow("serverstatus.yml")["jobs"]["health_check_badge_job"]
+
+    assert job["if"] == "github.repository == 'jeroen94704/gridfinitycreator'"
+
+
+def test_the_cadquery_pins_agree():
+    """conda (the image) and pip (the CI test job) pin it separately; Dependabot cannot do conda"""
+    in_dockerfile = re.search(r"cadquery=(\d+\.\d+\.\d+)", read("Dockerfile")).group(1)
+    in_ci = re.search(r"cadquery==(\d+\.\d+\.\d+)", read(os.path.join(".github", "workflows", "ci.yml"))).group(1)
+    in_requirements = re.search(r"cadquery==(\d+\.\d+\.\d+)", read("requirements.txt")).group(1)
+
+    assert in_dockerfile == in_ci == in_requirements
+
+
+def test_the_lint_configuration_checks_real_bugs():
+    config = read("ruff.toml")
+
+    for rule in ("E9", "F63", "F7", "F82"):
+        assert rule in config
+    assert "static/vendor" in config   # third-party files are not ours to lint
