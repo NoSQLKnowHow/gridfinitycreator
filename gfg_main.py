@@ -2,6 +2,7 @@ import datetime
 import logging
 import logging.handlers
 import os
+import re
 import secrets
 import sys
 import threading
@@ -54,6 +55,22 @@ logger = logging.getLogger('GFG')
 
 # Bounds how many models are built at once (see job_limiter.py for the settings)
 limiter = job_limiter.JobLimiter.from_env()
+
+# What the page sends with a submit so that it can tell when the answer has arrived (generate_feedback.js)
+DOWNLOAD_TOKEN = re.compile(r'[A-Za-z0-9_-]{8,64}')
+
+@app.after_request
+def echo_download_token(response):
+    """Generate is an ordinary form submit and the answer is a file, so the page stays put and the
+       browser tells it nothing when the response comes. The page sends a random token with the
+       submit; handing it back in a cookie is how it learns the response has arrived.
+
+       The token goes into a response header, so it is only echoed if it is a plain word."""
+    token = request.form.get('download_token') if request.method == 'POST' else None
+    if token and DOWNLOAD_TOKEN.fullmatch(token):
+        # Not HttpOnly: the page has to read it. It is random, secret from nobody, and gone in two minutes.
+        response.set_cookie('download_token', token, max_age=120, samesite='Lax', path='/', secure=request.is_secure)
+    return response
 
 def new_form(gen):
     """A generator's form, with field ids that are unique on the page (see make_ids_unique)"""

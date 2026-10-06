@@ -443,6 +443,12 @@ html[data-bs-theme="dark"] .theme-toggle .icon-moon {
   transform: translateX(-130%);
 }
 
+/* A Generate button that is waiting for its model: still focusable, but visibly busy */
+.btn[aria-disabled="true"] {
+  opacity: 0.8;
+  cursor: progress;
+}
+
 .btn-primary:hover::after {
   transform: translateX(130%);
   transition: transform 0.6s ease;
