@@ -212,6 +212,13 @@ def index_get():
 
     return response
 
+def client_address_for_log(environ=os.environ):
+    """The visitor's address as it goes into the log; "-" when GFG_LOG_CLIENT_IP says not to keep it
+       (set it to false, 0, no or off). Addresses are personal data in some places."""
+    if environ.get('GFG_LOG_CLIENT_IP', 'true').strip().lower() in ('false', '0', 'no', 'off'):
+        return '-'
+    return request.remote_addr
+
 def generate(gen, f, constants):
     """Act on a form that passed validation: return the dimensions readout, a preview
        STL, or the file to download"""
@@ -222,7 +229,7 @@ def generate(gen, f, constants):
 
     # Generate an STL with the provided settings
     is_preview = 'preview' in request.form and request.form['preview'] == 'true'
-    logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))
+    logger.info("Generating {0} for: {1}{2}".format(f.get_title(), client_address_for_log(), " (preview)" if is_preview else ""))
     # Building the model is the expensive step: take a turn, or be told the server is busy.
     # Waitress can say whether the client is still connected (Flask's own server cannot);
     # a client that has gone, e.g. a preview the page replaced with a newer one, is not

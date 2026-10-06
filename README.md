@@ -64,12 +64,15 @@ Everything has a default that works for a small private network, so none of this
 | `GFG_MAX_HOLES` | `600` | Most holes a holey bin may have |
 | `GFG_TRUSTED_PROXIES` | none | Reverse proxies whose `X-Forwarded-For`, `-Proto` and `-Host` headers are believed: addresses or networks, separated by commas (for example `172.18.0.0/16`). Leave it empty when visitors connect directly. See [Reverse proxy](#reverse-proxy) |
 | `GFG_PROXY_HOPS` | `1` | How many proxies a request passes through before it reaches the server (only matters with `GFG_TRUSTED_PROXIES`) |
+| `GFG_LOG_CLIENT_IP` | `true` | Set to `false` (or `0`, `no`, `off`) to leave visitors' addresses out of the log. See [Security](#security) |
 
 If you expose an instance to the internet, lower the limits (`GFG_MAX_QUEUE`, `GFG_QUEUE_TIMEOUT`, `GFG_BUILD_TIMEOUT` and the three `GFG_MAX_*` limits) so one visitor cannot keep the server busy for long.
 
 ### Security
 
 The container runs as an ordinary user (uid 1000) on a read-only filesystem with no extra privileges and no Linux capabilities. It writes only to two size-limited RAM disks (`/tmpfiles` for the generated files and `/tmp`) and to the `/logs` volume. The compose files set this up, and CI starts the image exactly like that and uses it.
+
+The server keeps one log, `access.log` in the log directory, which rotates (the current file and ten older ones, up to 1 MB each) so it never grows beyond about 11 MB. It records every model that is generated, with the visitor's address. Where addresses count as personal data, set `GFG_LOG_CLIENT_IP=false` and the log records `-` instead. Behind a reverse proxy the address is the visitor's only if `GFG_TRUSTED_PROXIES` is set (see [Reverse proxy](#reverse-proxy)).
 
 ### Resource needs
 
