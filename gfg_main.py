@@ -1,5 +1,7 @@
 import datetime
 import importlib
+import importlib.machinery
+import importlib.util
 import logging
 import logging.handlers
 import os
@@ -28,7 +30,10 @@ app.wsgi_app = ProxyFix(
 
 # Globals
 generators = []
-logger = None
+
+# Created at import time (handlers are attached in __main__) so the module also
+# works when imported by tests or another WSGI runner, instead of failing on a None logger
+logger = logging.getLogger('GFG')
 
 # Constants
 GEN_FOLDER = "./generators"
@@ -221,7 +226,7 @@ if __name__ == "__main__":
         generators = load_generators()
     except Exception as e:
         logger.error(f"Failed to load generators: {e}")
-        exit(1)
+        sys.exit(1)
 
     if debugMode:
         logger.info("Started in debug mode")
