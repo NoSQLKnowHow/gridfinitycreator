@@ -10,11 +10,12 @@ import waitress
 
 from contextlib import contextmanager
 
-from flask import Flask, jsonify, make_response, request
+from flask import Flask, abort, jsonify, make_response, request
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import grid_constants
+import gridspec
 from grid_constants import *
 from version import __version__
 
@@ -52,20 +53,31 @@ def render_index(form_list, constants, message):
                             gridsize_x=constants.GRID_UNIT_SIZE_X_MM,
                             gridsize_y=constants.GRID_UNIT_SIZE_Y_MM, gridsize_z=constants.HEIGHT_UNITSIZE_MM)
 
+def current_grid():
+    """The grid in effect for this request: the standard Gridfinity grid, overridden
+       by the saved gridspec cookie when that holds usable values. A missing or
+       damaged cookie must never break the page, so it is simply ignored."""
+    constants = grid_constants.Grid()
+
+    spec = gridspec.parse_cookie(request.cookies.get(gridspec.COOKIE_NAME))
+    if spec:
+        constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM = spec
+
+    constants.recalculate() # Recalculate derived measures
+    return constants
+
+def set_gridspec_cookie(response, constants):
+    """Remember the grid for a year. The cookie is only ever read by the server."""
+    response.set_cookie(
+        gridspec.COOKIE_NAME,
+        gridspec.serialize(constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM),
+        max_age=gridspec.COOKIE_MAX_AGE, samesite='Lax', httponly=True, secure=request.is_secure)
+
 # Handle GET requests for "/"
 @app.route('/', methods=['GET'])
 def index_get():
 
-    constants = grid_constants.Grid()
-
-    # If a grid spec cookie is found, set the values contained in it
-    if request.cookies.get('gridspec'):
-        values = request.cookies.get('gridspec').split(',')
-        constants.GRID_UNIT_SIZE_X_MM = float(values[0])
-        constants.GRID_UNIT_SIZE_Y_MM = float(values[1])
-        constants.HEIGHT_UNITSIZE_MM = float(values[2])
-
-    constants.recalculate() # Recalculate derived measures
+    constants = current_grid()
 
     form_list = []
 
@@ -75,35 +87,29 @@ def index_get():
 
     response = make_response(render_index(form_list, constants, ''))
 
-    if not request.cookies.get('gridspec'):
-        response.set_cookie('gridspec', str('{0},{1},{2}').format(constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM))
-    
+    # (Re)write the cookie when it is missing or was unusable
+    if gridspec.parse_cookie(request.cookies.get(gridspec.COOKIE_NAME)) is None:
+        set_gridspec_cookie(response, constants)
+
     return response
 
 # Handle POST requests for "/"
 @app.route('/', methods=['POST'])
 def index_post():
-    # Default gridspec
-    constants = grid_constants.Grid()
+    # Use the saved grid size if it was overridden
+    constants = current_grid()
 
     message = ""
 
-    # Use the saved grid size if it was overridden
-    if request.cookies.get('gridspec'):
-        c = request.cookies.get('gridspec')
-        values = c.split(',')
-        constants.GRID_UNIT_SIZE_X_MM = float(values[0])
-        constants.GRID_UNIT_SIZE_Y_MM = float(values[1])
-        constants.HEIGHT_UNITSIZE_MM = float(values[2])
-        constants.recalculate()  # Recalculate derived measures
-
-
     # If the request is from the form that specifies the grid size, override these values
     if 'advanced_settings' in request.form:
+        try:
+            spec = gridspec.from_form(request.form)
+        except gridspec.GridSpecError as e:
+            abort(400, description=str(e))
+
         # Save settings
-        constants.GRID_UNIT_SIZE_X_MM = float(request.form['gridSizeX'])
-        constants.GRID_UNIT_SIZE_Y_MM = float(request.form['gridSizeY'])
-        constants.HEIGHT_UNITSIZE_MM = float(request.form['gridSizeZ'])
+        constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM = spec
         constants.recalculate()  # Recalculate derived measures
 
     form_list = []
@@ -131,7 +137,8 @@ def index_post():
             return response
     
     response = make_response(render_index(form_list, constants, message))
-    response.set_cookie('gridspec', str('{0},{1},{2}').format(constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM))
+    if 'advanced_settings' in request.form:
+        set_gridspec_cookie(response, constants)
     return response
 
 # From this StackOverflow answer: https://stackoverflow.com/a/41904558

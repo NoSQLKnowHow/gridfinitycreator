@@ -99,6 +99,12 @@ def is_checked(form_markup, field_name):
     return re.search(r"\bchecked\b", tag) is not None
 
 
+def input_value(html, element_id):
+    """The value="..." attribute of the <input id=element_id> in a page, whatever the attribute order"""
+    tag = re.search(rf'<input[^>]*\bid="{element_id}"[^>]*>', html).group(0)
+    return re.search(r'\bvalue="([^"]*)"', tag).group(1)
+
+
 def solid_count(shape):
     """Number of separate solids in a CadQuery result"""
     return len((shape.val() if hasattr(shape, "val") else shape).Solids())
