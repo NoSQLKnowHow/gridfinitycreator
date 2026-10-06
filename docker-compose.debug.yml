@@ -7,18 +7,21 @@ services:
     tmpfs:
       - /tmpfiles
     environment:
-      - PUID=1000
-      - PGID=1000
-    environment:
+      PUID: 1000
+      PGID: 1000
       FLASK_PORT: 5001
       FLASK_DEBUG: "True"
+      # The debug server listens on 127.0.0.1 by default; inside a container it has to listen on
+      # all interfaces for the published port to reach it. It is only published on the host's
+      # loopback address below, because the debugger can run code on the machine.
+      GFG_BIND: 0.0.0.0
     restart: unless-stopped
     networks:
       - proxy
     ports:
-      - 5001:5001
+      - 127.0.0.1:5001:5001
     volumes:
-      - ${DATA_ROOT:?error}/gridfinitycreator/debug_logs:/logs
+      - ${DATA_ROOT:-./data}/gridfinitycreator/debug_logs:/logs
       
 networks:
   proxy:

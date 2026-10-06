@@ -8,13 +8,13 @@ Web app that dynamically generates STL/STEP files for Gridfinity-compatible 3D-p
 
 ## Commands
 
-All Docker-based; there is no test suite.
+Deployment is Docker-based. Tests run directly: `pip install -r requirements-dev.txt && pytest` (needs CadQuery; ~25 s).
 
 - `./build.sh` — build the Docker image (tagged `cadquery`)
 - `./deploy.sh` — production deployment via Waitress (`docker-compose --env-file ./.env.container up`)
 - `./debug.sh` — development mode using the built-in Flask server (`docker-compose.debug.yml`), with debugging conveniences
 - `docker-compose.portainer.yml` — simplified stack for Portainer (no `DATA_ROOT` env or external `proxy` network required)
-- Server listens on port 5000
+- Server listens on port 5000 (`FLASK_PORT`); every `GFG_*` setting is documented in the README
 
 ## Architecture — plugin-based generators
 
@@ -23,3 +23,11 @@ All Docker-based; there is no test suite.
 - `generators/common/` holds shared code: `bin_base.py`, `dimensions.py`, `export.py` (STL/STEP export), `layout.py`, and the shared settings-form template.
 - `grid_constants.py` defines Gridfinity dimensional constants; `help_provider.py` + `help_files/` serve the help pages.
 - To add a new component type, copy the structure of an existing generator directory — no central registration needed.
+
+## Request flow and process model
+
+- `gfg_main.py` validates the submitted form (Flask-WTF; numeric fields use `generators/common/validators.Bounded`), then asks the generator to build. Refusals that depend on the grid in use raise `generators/common/errors.SettingsError` (from the generator's `__init__`/`validate_settings`) and are shown to the user as a 422; cost limits live in `generators/common/limits.py`.
+- Building a model is CPU-heavy and CadQuery's native calls hold the GIL, so builds never run in the web server's threads: `model_builder.build()` runs them in a child process (multiprocessing fork server, pre-loaded via `build_preload.py`) with a hard timeout, and `job_limiter.py` bounds how many run or wait at once. Cheap requests (page loads, the `dimensions` readout) never take a slot.
+- A script that launches the server must keep that behind `if __name__ == "__main__"`: build children import the launching script by path.
+- `generator_loader.py` discovers the generator plugins (shared by the web app and the build processes); `gridspec.py` validates the grid cookie and the Advanced settings form.
+- Add a test with each fix: `tests/conftest.py` has helpers that submit forms the way the browser does (`post_form`), and `dimensions="true"` runs all validation without building any geometry.

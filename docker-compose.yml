@@ -18,7 +18,8 @@ services:
     env_file:
       - .env.container
     volumes:
-      - ${DATA_ROOT:?error}/gridfinitycreator/logs:/logs
+      # DATA_ROOT is where the logs are kept; it defaults to ./data so a first start needs no setup
+      - ${DATA_ROOT:-./data}/gridfinitycreator/logs:/logs
     # labels:
     #   - "traefik.enable=true"
     #   - "traefik.http.routers.gridfinity.rule=Host(`${GFG_DOMAIN:?error}`)"

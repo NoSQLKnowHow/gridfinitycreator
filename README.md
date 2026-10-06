@@ -28,12 +28,44 @@ The generator runs as a web-application in a docker container. To run your own i
 
 - [Download and unzip the code](https://github.com/jeroen94704/gridfinitycreator/releases/latest) or clone the repository: `git clone https://github.com/jeroen94704/gridfinitycreator`
 - cd into the source directory
-- Build the Docker Image: `./build.sh` (may need to prefix this with 'sudo')
-- Start the server: `./deploy.sh` (may need to prefix this with 'sudo')
+- Build the image and start the server: `./deploy.sh` (may need to prefix this with 'sudo')
 
 Now you can access the application by opening a browser and navigating to <ip-address-of-server>:5000, e.g.
 
 `http://192.168.1.100:5000/`
+
+Notes:
+
+- `./deploy.sh` builds the image itself; `./build.sh` is only needed if you want to build the image without starting it.
+- The compose file attaches the container to an external docker network called `proxy` (used by the reverse proxy set-up below). `./deploy.sh` creates that network if it does not exist yet.
+- Logs are kept in `./data/gridfinitycreator/logs`. To keep them elsewhere, set `DATA_ROOT` in `.env.container`.
+- The scripts use `docker compose` (the Compose plugin) when it is installed and fall back to the older `docker-compose`.
+
+### Configuration
+
+Everything has a default that works for a small private network, so none of this is required. The settings are environment variables, which you can add under `environment:` in the compose file.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `FLASK_PORT` | `5000` | Port the server listens on |
+| `GFG_BIND` | `0.0.0.0` (`127.0.0.1` in debug mode) | Address the server listens on |
+| `GFG_SECRET_KEY` | random at each start | Key used to sign sessions and form tokens. Set it to keep it fixed across restarts; a page left open across a restart is otherwise told to reload |
+| `GFG_TMP_DIR` | `/tmpfiles` in the image | Where generated files are written until they are downloaded (the compose files mount a RAM disk here) |
+| `GFG_LOG_DIR` | `/logs` in the image | Where the log files go |
+| `GFG_MAX_JOBS` | `2` | Models built at the same time |
+| `GFG_MAX_QUEUE` | `4` | Further requests allowed to wait for a turn; anything beyond that is told the server is busy (HTTP 503) |
+| `GFG_QUEUE_TIMEOUT` | `120` | Seconds a waiting request is kept waiting |
+| `GFG_THREADS` | max jobs + queue + 4 | Server threads (never fewer than max jobs + queue + 1, so the page stays responsive while models are building) |
+| `GFG_BUILD_TIMEOUT` | `300` | Seconds a model may take to build before it is stopped |
+| `GFG_MAX_DIVIDER_SEGMENTS` | `300` | Largest divider-bin layout allowed, in divider wall segments (about 12 x 12 compartments) |
+| `GFG_MAX_LIGHT_DIVIDER_SEGMENTS` | `150` | The same limit for the light bin, which does more work per segment |
+| `GFG_MAX_HOLES` | `600` | Most holes a holey bin may have |
+
+If you expose an instance to the internet, lower the limits (`GFG_MAX_QUEUE`, `GFG_QUEUE_TIMEOUT`, `GFG_BUILD_TIMEOUT` and the three `GFG_MAX_*` limits) so one visitor cannot keep the server busy for long.
+
+### Resource needs
+
+Models are built in separate processes so that the web page stays responsive while they are being generated. An idle instance uses roughly 1 GB of memory (the web server and a warm copy of CadQuery that new builds start from); each model being built at the same time needs a few hundred MB more, more for the largest ones. Allow about 2 GB for the default settings, and fewer concurrent builds (`GFG_MAX_JOBS`) on a smaller machine. A normal bin takes about a second to build; the largest allowed ones take about a minute.
 
 ## Portainer deployment
 
@@ -43,13 +75,19 @@ If you want to deploy this app with Portainer, use the Git repository and a stac
 - Repository reference: `feature/config-library` (or `main` for the main branch)
 - Compose path: `docker-compose.portainer.yml`
 
-This stack file avoids the missing `DATA_ROOT` environment problem and does not require an external `proxy` network.
+This stack file needs no environment file and no external `proxy` network.
 
 If your Portainer UI only shows a single repository reference field, use `https://github.com/NoSQLKnowHow/gridfinitycreator.git#feature/config-library`.
 
 ## Debug mode
 
 The deploy script results in the server running in production mode using the [Waitress WSGI server](https://flask.palletsprojects.com/en/2.2.x/deploying/waitress/). This is good for performance, but if you want to debug the code, start the server using the "./debug.sh" script instead of "./deploy.sh". This will make the server start itself using the built-in Flask server, which has convenient debugging features.
+
+The debug server includes an interactive debugger that can run code on the machine, so it is only published on the host's own loopback address (`http://127.0.0.1:5001/`). Do not publish it on a network interface.
+
+## Development
+
+Run the tests with `pip install -r requirements-dev.txt` followed by `pytest`. They drive the real application, including real CadQuery geometry, so CadQuery must be installed; the whole suite takes under half a minute.
 
 ## Reverse proxy
 

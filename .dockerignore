@@ -1,0 +1,17 @@
+# Keep the build context (and so the image) free of things the app does not need,
+# and of anything private: .env* holds local settings, .git holds the whole history.
+.git
+.github
+.gitignore
+.vscode
+.pytest_cache
+__pycache__
+*.pyc
+.env*
+data
+logs
+tmpfiles
+tests
+pytest.ini
+requirements-dev.txt
+*.md
