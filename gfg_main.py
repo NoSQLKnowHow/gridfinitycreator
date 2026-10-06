@@ -169,8 +169,12 @@ def generate(gen, f, constants):
     # Generate an STL with the provided settings
     is_preview = 'preview' in request.form and request.form['preview'] == 'true'
     logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))
-    # Building the model is the expensive step: take a turn, or be told the server is busy
-    with limiter.slot():
+    # Building the model is the expensive step: take a turn, or be told the server is busy.
+    # Waitress can say whether the client is still connected (Flask's own server cannot);
+    # a client that has gone, e.g. a preview the page replaced with a newer one, is not
+    # worth a turn in the queue or a core to build on.
+    client_gone = request.environ.get('waitress.client_disconnected')
+    with limiter.slot(client_gone), model_builder.stop_when_gone(client_gone):
         response = gen.process(f, constants)
 
     # If this is a preview request, modify the response to return binary data instead of download
@@ -225,6 +229,9 @@ def index_post():
         except model_builder.BuildFailed as e:
             logger.error("Building a %s failed: %s\n%s", f.get_title(), e, e.details)
             errors, status = [UNEXPECTED_ERROR_MESSAGE], 500
+        except job_limiter.ClientGone:
+            logger.info("Dropped a %s request: its client disconnected before the model was built", f.get_title())
+            return make_response('', 499)  # "client closed request"; there is nobody to read it
         except job_limiter.ServerBusy as e:
             logger.warning("Busy: turned away a %s request (%d building, %d waiting)", f.get_title(), limiter.running, limiter.waiting)
             return error_response([str(e)], 503, form_list, constants, active_form, headers={'Retry-After': '5'})
@@ -310,4 +317,4 @@ if __name__ == "__main__":
         app.run(debug=True, host=host, port=port)
     else:
         logger.info("Started in production mode, listening on %s:%s", host, port)
-        waitress.serve(app, host=host, port=port, threads=job_limiter.server_threads(limiter))
+        waitress.serve(app, host=host, port=port, **job_limiter.server_options(limiter))

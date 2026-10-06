@@ -75,15 +75,16 @@ def csrf_token(client):
     return CSRF_PATTERN.search(html).group(1)
 
 
-def post_form(client, form_id, token=None, **overrides):
+def post_form(client, form_id, token=None, environ=None, **overrides):
     """Submit one generator form the way the browser does. A keyword set to None
-       removes that field (an unchecked checkbox); anything else overrides the default."""
+       removes that field (an unchecked checkbox); anything else overrides the default.
+       `environ` adds WSGI environ entries, as a real server would (e.g. waitress.client_disconnected)."""
     payload = dict(DEFAULT_PAYLOADS[form_id])
     payload.update(overrides)
     payload = {k: v for k, v in payload.items() if v is not None}
     payload["csrf_token"] = token if token is not None else csrf_token(client)
     payload[form_id] = "Generate"  # the name of the submit button
-    return client.post("/", data=payload)
+    return client.post("/", data=payload, environ_overrides=environ)
 
 
 def form_html(client, form_id):

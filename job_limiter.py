@@ -10,6 +10,10 @@ server threads left over for cheap requests.
 Waiting requests still occupy a server thread, which is why the server must be given
 more threads than max_running + max_waiting (see threads_needed).
 
+A request whose client has already gone (the preview is requested again on every change
+to the form, and the page cancels the request it replaces) is not worth a turn: a waiting
+request gives up its place, see JobLimiter.slot.
+
 Settings, all optional environment variables (defaults suit a small private network):
     GFG_MAX_JOBS       models built at the same time                  (default 2)
     GFG_MAX_QUEUE      further requests allowed to wait for a turn    (default 4)
@@ -24,8 +28,16 @@ from contextlib import contextmanager
 BUSY_MESSAGE = "The server is busy building other models. Please try again in a moment."
 
 
+# How often a waiting request looks up from the queue to see whether its client is still there
+CLIENT_CHECK_INTERVAL = 0.25  # seconds
+
+
 class ServerBusy(Exception):
     """No capacity to build another model right now."""
+
+
+class ClientGone(Exception):
+    """The client that asked for this model has disconnected: nobody is waiting for it."""
 
 
 def number_from_env(name, default, cast):
@@ -67,11 +79,16 @@ class JobLimiter:
         return self._waiting
 
     @contextmanager
-    def slot(self):
+    def slot(self, client_gone=None):
         """Hold one build slot for the duration of the with-block.
 
            Waits for a free slot if there is room in the queue; raises ServerBusy if
-           the queue is full or the wait times out."""
+           the queue is full or the wait times out.
+
+           `client_gone`, if given, is a function that says whether the client has
+           disconnected (waitress provides one for every request). A request whose client
+           has gone is not worth a turn: it leaves the queue, or never starts, by raising
+           ClientGone."""
         deadline = time.monotonic() + self.wait_timeout
 
         with self._condition:
@@ -82,12 +99,22 @@ class JobLimiter:
                 self._waiting += 1
                 try:
                     while self._running >= self.max_running:
+                        if client_gone is not None and client_gone():
+                            raise ClientGone()
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
                             raise ServerBusy(BUSY_MESSAGE)
+                        if client_gone is not None:
+                            remaining = min(remaining, CLIENT_CHECK_INTERVAL)
                         self._condition.wait(remaining)
                 finally:
                     self._waiting -= 1
+
+            if client_gone is not None and client_gone():
+                # A slot is free, and being woken for it was this request's only job:
+                # pass the turn on rather than leave the next in line waiting
+                self._condition.notify()
+                raise ClientGone()
 
             self._running += 1
 
@@ -106,3 +133,17 @@ def server_threads(limiter):
        home page and the cheap dimensions requests while builds are queued."""
     requested = number_from_env("GFG_THREADS", limiter.threads_needed + 4, int)
     return max(requested, limiter.threads_needed + 1)
+
+
+def server_options(limiter):
+    """Keyword arguments for waitress.serve() that the limiter relies on: its thread
+       count (see server_threads), and request lookahead.
+
+       Lookahead matters because waitress only keeps listening to a connection while the
+       request on it is being handled if it may read ahead. Without it, waitress.client_disconnected
+       never turns true during a build, however early the client hung up (measured), and
+       abandoned requests could not be dropped."""
+    return {
+        "threads": server_threads(limiter),
+        "channel_request_lookahead": 1,
+    }

@@ -8,7 +8,8 @@ cannot touch the web server at all. That also gives:
 
   * a hard time limit: a child that overruns is killed (threads cannot be stopped),
   * crash isolation: a native crash takes down one build, not the whole server,
-  * real parallelism: two builds use two cores.
+  * real parallelism: two builds use two cores,
+  * cancellation: a build whose client has gone away is killed, freeing its core.
 
 Children come from the multiprocessing fork server, which loads CadQuery and the
 generators once (see build_preload) and forks each child from that warm copy:
@@ -18,17 +19,20 @@ Settings:
     GFG_BUILD_TIMEOUT   seconds a build may take before it is stopped   (default 300)
 """
 
+import contextlib
+import contextvars
 import dataclasses
 import logging
 import multiprocessing
 import os
 import threading
+import time
 import traceback
 
 import generator_loader
 import grid_constants
 from generators.common.errors import SettingsError
-from job_limiter import number_from_env
+from job_limiter import CLIENT_CHECK_INTERVAL, ClientGone, number_from_env
 
 logger = logging.getLogger('GFG')
 
@@ -50,6 +54,23 @@ class BuildTimeout(BuildFailed):
 
 def build_timeout():
     return number_from_env("GFG_BUILD_TIMEOUT", DEFAULT_BUILD_TIMEOUT, float)
+
+
+# Says whether the client of the request being handled in this thread has disconnected, or None.
+# The generators' main.py call build() without knowing about requests, so the web layer
+# sets this for the duration of a request instead (see stop_when_gone).
+client_gone_check = contextvars.ContextVar("client_gone_check", default=None)
+
+
+@contextlib.contextmanager
+def stop_when_gone(client_gone):
+    """While in this block, any build started from this thread is stopped (ClientGone)
+       as soon as `client_gone()` says the client has disconnected. None means never."""
+    token = client_gone_check.set(client_gone)
+    try:
+        yield
+    finally:
+        client_gone_check.reset(token)
 
 
 _context = None
@@ -83,12 +104,14 @@ def _stop(process, finished):
         process.join(2)
 
 
-def run_in_process(target, args=(), timeout=None):
+def run_in_process(target, args=(), timeout=None, client_gone=None):
     """Run target(sender, *args) in a child process and return the (status, payload)
        tuple it sends back through `sender`.
 
        Raises BuildTimeout if it does not answer within `timeout` seconds (the child is
-       killed), and BuildFailed if it dies without answering."""
+       killed), ClientGone if `client_gone()` becomes true while it runs (the child is
+       killed: nobody is waiting for its answer), and BuildFailed if it dies without
+       answering."""
     timeout = build_timeout() if timeout is None else timeout
     context = get_context()
 
@@ -99,10 +122,21 @@ def run_in_process(target, args=(), timeout=None):
 
     answered = False
     try:
-        if not receiver.poll(timeout):
-            raise BuildTimeout(
-                f"This model took longer than {timeout:g} seconds to build, so it was stopped. "
-                "Try a smaller or simpler design.")
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise BuildTimeout(
+                    f"This model took longer than {timeout:g} seconds to build, so it was stopped. "
+                    "Try a smaller or simpler design.")
+            if client_gone is None:
+                ready = receiver.poll(remaining)
+            else:
+                ready = receiver.poll(min(remaining, CLIENT_CHECK_INTERVAL))
+                if not ready and client_gone():
+                    raise ClientGone()
+            if ready:
+                break
         try:
             result = receiver.recv()
         except EOFError:
@@ -136,13 +170,15 @@ def build(generator_name, settings, grid, filename, timeout=None):
     """Build a model with the named generator and write it to `filename`.
 
        Runs in a separate process; see the module documentation. Raises SettingsError
-       if the generator refuses the settings, BuildTimeout if it takes too long and
-       BuildFailed if anything else goes wrong."""
+       if the generator refuses the settings, BuildTimeout if it takes too long,
+       ClientGone if the client of this request disconnects meanwhile (see
+       stop_when_gone) and BuildFailed if anything else goes wrong."""
     try:
         status, payload = run_in_process(
             _worker,
             (generator_name, dataclasses.asdict(settings), dataclasses.asdict(grid), filename),
-            timeout)
+            timeout,
+            client_gone=client_gone_check.get())
 
         if status == "settings":
             raise SettingsError(payload)
