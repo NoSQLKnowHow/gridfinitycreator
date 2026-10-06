@@ -3,6 +3,7 @@ from wtforms import IntegerField, DecimalField, SelectField, BooleanField
 from wtforms.widgets import NumberInput
 from grid_constants import *
 import os
+import help_provider as help
 from generators.common.settings_form import get_standard_settings_form
 
 class Form(FlaskForm):
@@ -10,16 +11,27 @@ class Form(FlaskForm):
     sizeUnitsX     = IntegerField("Width", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
     sizeUnitsY     = IntegerField("Length", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
     sizeUnitsZ     = IntegerField("Height", widget=NumberInput(min = 1, max = Grid.MAX_HEIGHT_UNITS), default=6)
-    addStackingLip = BooleanField("Stacking lip", default="True")
-    addMagnetHoles = BooleanField("Magnet holes", default="True")
+    # Defaults must be real booleans: a string such as "False" is non-empty and
+    # therefore truthy, which rendered those switches as checked
+    addStackingLip = BooleanField("Stacking lip", default=True)
+    addMagnetHoles = BooleanField("Magnet holes", default=True)
     magnetHoleDiameter = DecimalField("Magnet-hole diameter", default = 6.5, places = 2)
-    addRemovalHoles = BooleanField("Magnet removal holes", default="False")
-    addScrewHoles   = BooleanField("Screw holes", default="False")
+    addRemovalHoles = BooleanField("Magnet removal holes", default=False)
+    addScrewHoles   = BooleanField("Screw holes", default=False)
     exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+        self.sizeUnitsX.description = help.get_size_help()
+        self.sizeUnitsY.description = help.get_size_help()
+        self.sizeUnitsZ.description = help.get_size_help()
+        self.addStackingLip.description = help.get_stackinglip_help()
+        self.addMagnetHoles.description = help.get_magnet_help()
+        self.magnetHoleDiameter.description = help.get_magnet_help()
+        self.addRemovalHoles.description = help.get_magnet_help()
+        self.addScrewHoles.description = help.get_magnet_help()
+        self.exportFormat.description = help.get_exportformat_help()
+
     def get_rows(self):
         return [
           ["Size", [self.sizeUnitsX, self.sizeUnitsY, self.sizeUnitsZ]],

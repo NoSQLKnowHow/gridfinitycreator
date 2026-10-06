@@ -86,6 +86,19 @@ def post_form(client, form_id, token=None, **overrides):
     return client.post("/", data=payload)
 
 
+def form_html(client, form_id):
+    """The rendered HTML of one generator's settings form, as served on the home page"""
+    html = client.get("/").get_data(as_text=True)
+    start = html.index(f'id="{form_id}_form"')
+    return html[start:html.index("</form>", start)]
+
+
+def is_checked(form_markup, field_name):
+    """Whether the checkbox <input id=field_name> in this form markup is rendered checked"""
+    tag = re.search(rf'<input[^>]*\bid="{field_name}"[^>]*>', form_markup).group(0)
+    return re.search(r"\bchecked\b", tag) is not None
+
+
 def solid_count(shape):
     """Number of separate solids in a CadQuery result"""
     return len((shape.val() if hasattr(shape, "val") else shape).Solids())
