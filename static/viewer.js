@@ -591,7 +591,21 @@ async function updateDimensions(formId) {
 
   try {
     const response = await fetch('/', { method: 'POST', body: formData });
-    if (!response.ok) return;
+    if (!response.ok) {
+      // The server explains why it refused these settings ({"errors": [...]}) -
+      // show that here rather than leaving a stale readout on screen
+      let messages = [];
+      try {
+        const body = await response.json();
+        messages = Array.isArray(body.errors) ? body.errors : [];
+      } catch (e) {
+        // not a JSON response; nothing useful to show
+      }
+      if (messages.length) {
+        panel.innerHTML = `<div class="text-danger small">${messages.map(escapeHtml).join('<br>')}</div>`;
+      }
+      return;
+    }
 
     const sections = await response.json();
     if (!Array.isArray(sections)) return;

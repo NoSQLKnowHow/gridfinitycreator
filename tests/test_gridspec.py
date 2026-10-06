@@ -90,6 +90,6 @@ def test_saving_advanced_settings_sets_a_durable_cookie(client):
 def test_invalid_advanced_settings_are_rejected_with_a_reason(client, form, message):
     response = client.post("/", data=dict(advanced_settings="Save", **form))
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert message in response.get_data(as_text=True)
     assert "gridspec=" not in response.headers.get("Set-Cookie", "")  # nothing was saved

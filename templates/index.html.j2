@@ -2,6 +2,19 @@
 
 {% block content %}
 
+{# Messages explaining why a request was refused. The page is rendered without
+   autoescaping, so every message must go through |e. #}
+{% macro error_alert(errors) %}
+{% if errors %}
+<div class="alert alert-danger mx-3 mt-3 mb-0" role="alert">
+  <strong>That didn't work:</strong>
+  <ul class="mb-0">
+    {% for message in errors %}<li>{{ message|e }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endmacro %}
+
 <div class="container-fluid gfg-shell mb-3">
 
   <header class="gfg-hero">
@@ -28,11 +41,11 @@
     <div class="col">
       <ul class="nav nav-tabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" data-bs-toggle="tab" href="#home">Home</button>
+          <button class="nav-link{% if not active_form %} active{% endif %}" data-bs-toggle="tab" href="#home">Home</button>
         </li>
         {% for form in forms %}
         <li class="nav-item" role="presentation">
-          <button class="nav-link" data-bs-toggle="tab" href="#{{ form.id }}">{{ form.get_title() }}</button>
+          <button class="nav-link{% if form.id == active_form %} active{% endif %}" data-bs-toggle="tab" href="#{{ form.id }}">{{ form.get_title() }}</button>
         </li>
         {% endfor %}
       </ul>
@@ -40,7 +53,8 @@
   </div>
 
   <div class="tab-content mb-3">
-    <div id="home" class="tab-pane fade show active">
+    <div id="home" class="tab-pane fade{% if not active_form %} show active{% endif %}">
+      {% if not active_form %}{{ error_alert(errors) }}{% endif %}
       <div class="row p-3">
         <div class="col">
           {% include 'templates/front_page.html.j2' %}
@@ -49,7 +63,8 @@
     </div>
 
     {% for form in forms %}
-    <div id="{{ form.id }}" class="tab-pane fade">
+    <div id="{{ form.id }}" class="tab-pane fade{% if form.id == active_form %} show active{% endif %}">
+      {% if form.id == active_form %}{{ error_alert(errors) }}{% endif %}
       <div class="px-3 pt-3">
         <button class="gfg-about-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#about-{{form.id}}"
           aria-expanded="false" aria-controls="about-{{form.id}}">
