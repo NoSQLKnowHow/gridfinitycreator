@@ -3,3 +3,4 @@ logs
 
 .vscode
 tmpfiles
+.pytest_cache
