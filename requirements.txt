@@ -1,13 +1,18 @@
-click>=8.0.3
-colorama>=0.4.4
-Flask>=2.0.2
-itsdangerous>=2.0.1
-Jinja2>=3.0.3
-MarkupSafe>=2.0.1
-Werkzeug>=2.0.2
-gunicorn>=20.1.0
-Flask-WTF>=1.1.1
-bootstrap-flask>=2.2.0
-waitress>=2.1.2
-gunicorn>=20.1.0
-nlopt>=2.9.0
+# Pinned to the versions the test suite runs against, so that two builds of the image are the same.
+# (CadQuery is not listed: the Dockerfile installs cadquery=2.8.0 from conda-forge, and `pip install
+# cadquery==2.8.0` does it for a local setup. It brings numpy, OCP and nlopt at the versions it
+# declares, which is why they are not here either.)
+
+# What the application imports
+Flask==3.1.3
+Flask-WTF==1.3.0
+waitress==3.0.2
+
+# Pulled in by the three above; pinned too
+WTForms==3.2.2
+Werkzeug==3.1.9
+Jinja2==3.1.6
+MarkupSafe==3.0.4
+itsdangerous==2.2.0
+click==8.5.0
+blinker==1.9.0

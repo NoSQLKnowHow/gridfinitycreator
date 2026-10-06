@@ -1,28 +1,33 @@
 from flask_wtf import FlaskForm
-from wtforms import IntegerField, DecimalField, SelectField, BooleanField
+from wtforms import IntegerField, DecimalField, SelectField, BooleanField, HiddenField
 from wtforms.widgets import NumberInput
 from grid_constants import *
 
 import os
 import help_provider as help
 from generators.common.settings_form import get_standard_settings_form
+from generators.common.validators import Bounded
+
+# The most compartments a bin can have in one direction
+MAX_COMPARTMENTS = Grid.MAX_COMPARTMENTS_PER_GRID_UNIT * Grid.MAX_GRID_UNITS
 
 class Form(FlaskForm):
     id = "classicbin"
-    sizeUnitsX      = IntegerField("Width", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsY      = IntegerField("Length", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=2)
-    sizeUnitsZ      = IntegerField("Height", widget=NumberInput(min = Grid.MIN_HEIGHT_UNITS, max = Grid.MAX_HEIGHT_UNITS), default=6)
-    compartmentsX   = IntegerField("Width direction", widget=NumberInput(min = 1, max = Grid.MAX_COMPARTMENTS_PER_GRID_UNIT*Grid.MAX_GRID_UNITS), default=3)
-    compartmentsY   = IntegerField("Length direction", widget=NumberInput(min = 1, max = Grid.MAX_COMPARTMENTS_PER_GRID_UNIT*Grid.MAX_GRID_UNITS), default=3)
+    sizeUnitsX      = IntegerField("Width", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsY      = IntegerField("Length", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=2)
+    sizeUnitsZ      = IntegerField("Height", validators=[Bounded(Grid.MIN_HEIGHT_UNITS, Grid.MAX_HEIGHT_UNITS)], default=6)
+    compartmentsX   = IntegerField("Width direction", validators=[Bounded(1, MAX_COMPARTMENTS)], default=3)
+    compartmentsY   = IntegerField("Length direction", validators=[Bounded(1, MAX_COMPARTMENTS)], default=3)
     addStackingLip  = BooleanField("Stacking lip", default="checked", false_values=(False, "false", ""))
     addMagnetHoles  = BooleanField("Magnet holes", default="true", false_values=(False, "false", ""))
-    magnetHoleDiameter = DecimalField("Magnet-hole diameter", default = 6.5, places = 2)
+    magnetHoleDiameter = DecimalField("Magnet-hole diameter", validators=[Bounded(1, 10)], default = 6.5, places = 2)
     addRemovalHoles = BooleanField("Magnet removal holes", false_values=(False, "false", ""))
     addScrewHoles   = BooleanField("Screw holes", false_values=(False, "false", ""))
     addGrabCurve    = BooleanField("Scoop ramp", default="true", false_values=(False, "false", ""))
     addLabelRidge   = BooleanField("Add label tab(s)", default="true", false_values=(False, "false", ""))
     multiLabel      = BooleanField("Label tab per row", false_values=(False, "false", ""))
-    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP')])
+    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
+    removedWalls    = HiddenField(default="")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,6 +45,9 @@ class Form(FlaskForm):
         self.addLabelRidge.description = help.get_labeltab_help()
         self.multiLabel.description = help.get_labeltab_help()
         self.exportFormat.description = help.get_exportformat_help()
+
+    def has_layout_editor(self):
+        return True
 
     def get_rows(self):
         return [

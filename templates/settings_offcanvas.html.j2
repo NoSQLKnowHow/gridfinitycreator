@@ -1,6 +1,6 @@
 <div class="offcanvas offcanvas-start" tabindex="-1" id="settings" aria-labelledby="settingsLabel">
     <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="settingsLabel">Advanced settings</h5>
+        <h2 class="offcanvas-title h5" id="settingsLabel">Advanced settings</h2>
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body">
@@ -8,43 +8,47 @@
             <p>Below is the specification of the grid used by the generator to create components. You can select one of
                 the presets or adjust the settings individually.</p>
             <div class="alert alert-info">
-                <h5 class="alert-heading">Note</h5>
+                <h3 class="alert-heading h5">Note</h3>
                 <p class="mb-0">All measurements are in millimeters</p>
             </div>
             <div class="alert alert-danger">
-                <h5 class="alert-heading">Beware</h5>
+                <h3 class="alert-heading h5">Beware</h3>
                 <p class="mb-0">The defaults comply with the Gridfinity specification and have been tested to work well.
                     Don't make any changes unless you have a good reason to do so and you know what you're doing.</p>
             </div>
         </div>
         <hr />
-        <h5>Presets</h5>
-        <select class="form-select" id="grid-presets" onchange="presetChanged()">
-            <option value="Gridfinity" selected>Gridfinity</option>
-            <option value="Raaco">Raaco</option>
+        <h3 class="h5" id="grid-presets-title">Presets</h3>
+        <select class="form-select" id="grid-presets" aria-labelledby="grid-presets-title" onchange="presetChanged()">
+            {% for name, preset_x, preset_y, preset_z in grid_presets %}
+            <option value="{{ name }}" data-x="{{ preset_x|mm }}" data-y="{{ preset_y|mm }}" data-z="{{ preset_z|mm }}"{% if name == grid_preset %} selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+            {% if grid_preset == "Custom" %}
+            <option value="Custom" selected>Custom</option>
+            {% endif %}
         </select>
         <p id="demo"></p>
         <hr />
-        <h5>Constants</h5>
+        <h3 class="h5">Constants</h3>
         <form method="post">
             <div class="row justify-content-center">
                 <div class="col text-center">
                     <div class="row m-1">
                         <div class="col-4 text-end"><label for="gridSizeX">Grid size X</label>:</div>
                         <div class="col-8">
-                            <input id="gridSizeX" name="gridSizeX" type="number" step="any" value="{{gridsize_x}}">
+                            <input id="gridSizeX" name="gridSizeX" type="number" step="any" class="form-control" value="{{gridsize_x}}">
                         </div>
                     </div>
                     <div class="row m-1">
-                        <div class="col-4 text-end"><label for="gridSizeZ">Grid size Y</label>:</div>
+                        <div class="col-4 text-end"><label for="gridSizeY">Grid size Y</label>:</div>
                         <div class="col-8">
-                            <input id="gridSizeY" name="gridSizeY" type="number" step="any" value="{{gridsize_y}}">
+                            <input id="gridSizeY" name="gridSizeY" type="number" step="any" class="form-control" value="{{gridsize_y}}">
                         </div>
                     </div>
                     <div class="row m-1">
                         <div class="col-4 text-end"><label for="gridSizeZ">Height unit</label>:</div>
                         <div class="col-8">
-                            <input id="gridSizeZ" name="gridSizeZ" type="number" step="any" value="{{gridsize_z}}">
+                            <input id="gridSizeZ" name="gridSizeZ" type="number" step="any" class="form-control" value="{{gridsize_z}}">
                         </div>
                     </div>
                     <div class="row m-1">

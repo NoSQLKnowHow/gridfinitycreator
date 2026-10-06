@@ -15,7 +15,7 @@ def unit_base(basePlane, settings, grid):
     baseTop = baseTop.edges("|Z").fillet(grid.CORNER_FILLET_RADIUS)
     baseTop = baseTop.faces("<Z").chamfer(grid.BASE_TOP_CHAMFER_SIZE)
     
-    result = baseTop | baseBottom
+    result = baseTop.union(baseBottom)
     
     if settings.addMagnetHoles:
         result = result.faces("<Z").workplane()

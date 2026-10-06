@@ -7,6 +7,8 @@ on:
     
 jobs:
   health_check_badge_job:
+    # It checks the upstream author's production site; on a fork that is somebody else's server
+    if: github.repository == 'jeroen94704/gridfinitycreator'
     runs-on: ubuntu-latest
     name: Check status of GC server
     steps:

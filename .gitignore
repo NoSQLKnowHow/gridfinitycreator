@@ -2,3 +2,9 @@ __pycache__
 logs
 
 .vscode
+tmpfiles
+.pytest_cache
+
+# One person's local settings (see .env.container.template)
+.env.container
+data

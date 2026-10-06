@@ -1,3 +1,7 @@
-<p>Files can be generated either in STL or STEP format. STL is widely supported by 3D print software, but STEP is better suited if you intend to modify the model manually</p>
-
-<p>(Before asking for 3MF support: The framework used to generate these files does have the option to export to 3MF, but this is currently a little buggy, and produces files that don't slice well)</p>
+<p>Files can be generated in STL, STEP or 3MF format:</p>
+<ul>
+    <li><b>STL</b> is the most widely supported format for 3D print software.</li>
+    <li><b>STEP</b> is better suited if you intend to modify the model manually in CAD software.</li>
+    <li><b>3MF</b> is a modern, compact format that most current slicers prefer. The generated files are
+        post-processed into watertight meshes with correct millimeter units.</li>
+</ul>

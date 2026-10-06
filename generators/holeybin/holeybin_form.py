@@ -7,24 +7,29 @@ from holeybin_settings import HoleShape
 import os
 import help_provider as help
 from generators.common.settings_form import get_standard_settings_form
+from generators.common.validators import Bounded
+
+# Generous bounds that only refuse nonsense: whether a hole grid fits inside the largest
+# allowed bin depends on the grid in use, so the generator decides that (with a message)
+MAX_HOLES_PER_SIDE = 100
 
 class Form(FlaskForm):
     id = "holeybin"
-    numHolesX      = IntegerField("# holes in width direction", widget=NumberInput(min = 1), default=3)
-    numHolesY      = IntegerField("# holes in length direction", widget=NumberInput(min = 1), default=3)
-    sizeUnitsX     = IntegerField("Width in grid-units", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=1)
-    sizeUnitsY     = IntegerField("Length in grid-units", widget=NumberInput(min = 1, max = Grid.MAX_GRID_UNITS), default=1)
-    holeDepth      = DecimalField("Depth", default = 5.0, places = 2)
+    numHolesX      = IntegerField("# holes in width direction", validators=[Bounded(1, MAX_HOLES_PER_SIDE)], default=3)
+    numHolesY      = IntegerField("# holes in length direction", validators=[Bounded(1, MAX_HOLES_PER_SIDE)], default=3)
+    sizeUnitsX     = IntegerField("Width in grid-units", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=1)
+    sizeUnitsY     = IntegerField("Length in grid-units", validators=[Bounded(1, Grid.MAX_GRID_UNITS)], default=1)
+    holeDepth      = DecimalField("Depth", validators=[Bounded(1, 200)], default = 5.0, places = 2)
     holeShape      = SelectField("Shape", choices=[(choice.name, choice.value) for choice in HoleShape])
-    holeSize       = DecimalField("Size", default = 4.0, places = 2)
-    keepoutDiameter = DecimalField("Keepout diameter", default = 12.0, places = 2)
+    holeSize       = DecimalField("Size", validators=[Bounded(1, 100)], default = 4.0, places = 2)
+    keepoutDiameter = DecimalField("Keepout diameter", validators=[Bounded(2, 100)], default = 12.0, places = 2)
     addStackingLip  = BooleanField("Stacking lip", default="checked", false_values=(False, "false", ""))
     addMagnetHoles  = BooleanField("Magnet holes", default="true", false_values=(False, "false", ""))
-    magnetHoleDiameter = DecimalField("Magnet-hole diameter", default = 6.5, places = 2)
+    magnetHoleDiameter = DecimalField("Magnet-hole diameter", validators=[Bounded(1, 10)], default = 6.5, places = 2)
     addRemovalHoles = BooleanField("Magnet removal holes", false_values=(False, "false", ""))
     addScrewHoles   = BooleanField("Screw holes", false_values=(False, "false", ""))
 
-    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP')])
+    exportFormat    = SelectField('Export format', choices=[('stl', 'STL'), ('step', 'STEP'), ('3mf', '3MF')])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

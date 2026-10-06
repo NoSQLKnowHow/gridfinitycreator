@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Real bugs only (syntax errors, undefined names); see ruff.toml
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.16.10
+      - run: ruff check .
+
+  # The test suite against CadQuery installed from PyPI (keep the version in step with the Dockerfile)
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: System libraries CadQuery needs
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglx-mesa0
+      - run: pip install cadquery==2.8.0 -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  # The image itself: build it, run the tests in ITS environment (CadQuery from conda-forge, its Python),
+  # then run it the way the compose files do and use it
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t gridfinitycreator:ci .
+
+      - name: Run the tests inside the image's own environment
+        run: |
+          docker run --rm --user 0:0 -v "$PWD:/repo" -w /repo --entrypoint sh gridfinitycreator:ci -c \
+            'pip install --no-cache-dir -r requirements-dev.txt && python -m pytest -q -p no:cacheprovider'
+
+      - name: Start it as the compose files run it (ordinary user, read-only, no capabilities)
+        run: |
+          docker run -d --name gfg -p 5000:5000 \
+            --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /tmpfiles:size=512m,uid=1000,gid=1000 --tmpfs /tmp:size=256m,uid=1000,gid=1000 \
+            gridfinitycreator:ci
+
+      - name: Use it (page, static file, readout, preview, STL and 3MF downloads, a refused request)
+        run: python3 tools/smoke_test.py http://127.0.0.1:5000 --wait 180
+
+      - name: Start it again with a log directory it cannot write to (a volume that belongs to root)
+        run: |
+          mkdir -p "$RUNNER_TEMP/rootlogs"
+          sudo chown root:root "$RUNNER_TEMP/rootlogs"
+          sudo chmod 755 "$RUNNER_TEMP/rootlogs"
+          docker run -d --name gfg_rootlogs -p 5001:5000 \
+            --user 1000:1000 --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            --tmpfs /tmpfiles:size=512m,uid=1000,gid=1000 --tmpfs /tmp:size=256m,uid=1000,gid=1000 \
+            -v "$RUNNER_TEMP/rootlogs:/logs" \
+            gridfinitycreator:ci
+          python3 tools/smoke_test.py http://127.0.0.1:5001 --wait 180
+          docker logs gfg_rootlogs 2>&1 | grep "Cannot write to /logs"
+
+      - name: Container logs
+        if: always()
+        run: |
+          docker logs gfg || true
+          docker logs gfg_rootlogs || true

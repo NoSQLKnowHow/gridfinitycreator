@@ -5,21 +5,37 @@ services:
     build: ./
     container_name: cadquery_debug
     tmpfs:
-      - /tmpfiles
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Amsterdam
+      - /tmpfiles:size=512m,uid=1000,gid=1000
+      - /tmp:size=256m,uid=1000,gid=1000
+    # Run as an ordinary user on a read-only filesystem, with no extra privileges. The only places
+    # the server writes are the RAM disks below (generated files, and /tmp for the model builder's
+    # fork server) and the /logs volume.
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          # The page needs about 1g when idle and each build up to 0.6g more. Raise this for more
+          # than the default two builds at once (GFG_MAX_JOBS), or lower it on a small machine.
+          memory: ${GFG_MEM_LIMIT:-3g}
     environment:
       FLASK_PORT: 5001
       FLASK_DEBUG: "True"
+      # The debug server listens on 127.0.0.1 by default; inside a container it has to listen on
+      # all interfaces for the published port to reach it. It is only published on the host's
+      # loopback address below, because the debugger can run code on the machine.
+      GFG_BIND: 0.0.0.0
     restart: unless-stopped
     networks:
       - proxy
     ports:
-      - 5001:5001
+      - 127.0.0.1:5001:5001
     volumes:
-      - ${DATA_ROOT:?error}/gridfinitycreator/debug_logs:/logs
+      - ${DATA_ROOT:-./data}/gridfinitycreator/debug_logs:/logs
       
 networks:
   proxy:

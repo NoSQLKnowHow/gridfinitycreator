@@ -5,11 +5,16 @@ import math
 from holeybin_settings import HoleShape
 
 from generators.common.bin_base import bin_base
+from generators.common.export import export_model
+from generators.common import dimensions as dims
+from generators.common import limits
+from generators.common.errors import SettingsError
 
 class Generator:
     def __init__(self, settings, grid) -> None:
         self.settings = settings
         self.grid = grid
+        limits.at_least_one(self.settings, 'numHolesX', 'numHolesY')
         # Precalculate both before and after validation to process settings that changes
         self.precalculate()
         self.validate_settings()
@@ -92,12 +97,31 @@ class Generator:
         return result
 
     def validate_settings(self):
-        """Do some sanity checking on the settings to prevent impossible or unreasonable results"""
+        """Refuse settings that need a bigger bin than allowed, or cut too many holes.
 
-        # Cap the size in grid-units to avoid thrashing the server
-        self.settings.sizeUnitsX = min(self.settings.sizeUnitsX, self.grid.MAX_GRID_UNITS)
-        self.settings.sizeUnitsY = min(self.settings.sizeUnitsY, self.grid.MAX_GRID_UNITS)
-        self.settings.sizeUnitsZ = min(self.settings.sizeUnitsZ, self.grid.MAX_HEIGHT_UNITS)
+           The bin size is derived from the hole grid (see precalculate), so it cannot
+           simply be capped: precalculate() runs again right after validation and would
+           recompute the uncapped size, silently undoing the cap. Tell the user instead."""
+
+        s = self.settings
+        g = self.grid
+        max_units = int(g.MAX_GRID_UNITS)
+
+        if s.sizeUnitsX > g.MAX_GRID_UNITS or s.sizeUnitsY > g.MAX_GRID_UNITS:
+            raise SettingsError(
+                f"This hole grid needs a bin of {s.sizeUnitsX} × {s.sizeUnitsY} grid units, but the largest "
+                f"allowed is {max_units} × {max_units}. Use fewer holes or a smaller keepout diameter.")
+
+        if s.sizeUnitsZ > g.MAX_HEIGHT_UNITS:
+            max_depth = (g.MAX_HEIGHT_UNITS - 1) * g.HEIGHT_UNITSIZE_MM
+            raise SettingsError(
+                f"A hole depth of {s.holeDepth:g} mm needs a bin {s.sizeUnitsZ} height units tall, but the tallest "
+                f"allowed is {int(g.MAX_HEIGHT_UNITS)}. The maximum hole depth is {max_depth:g} mm.")
+
+        holes = s.numHolesX * s.numHolesY
+        if holes > limits.max_holes():
+            raise SettingsError(
+                f"{holes} holes is more than the limit of {limits.max_holes()}. Use fewer holes.")
 
     def generate_model(self):
         plane = cq.Workplane("XY")
@@ -110,23 +134,43 @@ class Generator:
 
         # Add the outer wall
         result.add(self.outer_wall(plane))
-        
+
+        # Fuse the base and the wall into one solid *before* cutting the holes.
+        # Cutting replaces the stack with a single compound, so without a stacking
+        # lip nothing would be left to fuse the two and the bin would be exported
+        # as two touching but separate solids.
+        result = result.combine(clean=True)
+
         # Continue from the top of the bin
         plane = result.faces(">Z").workplane()
 
         # Create the hole-grid in the same plane as the previous operation
         result = self.holey_grid(plane)
 
-        # Add the stacking lip
-        result.add(self.stacking_lip(plane))
+        # Add the stacking lip (there is none to add when it is disabled)
+        lip = self.stacking_lip(plane)
+        if lip is not None:
+            result.add(lip)
 
         # Combine everything together
         result = result.combine(clean=True)
 
         return result
 
+    def get_dimensions(self):
+        """Real-world dimensions for the readout panel"""
+        return [
+            dims.bin_outer_section(self),
+            {"title": "Holes", "rows": [
+                ["Hole grid", f"{self.settings.numHolesX} × {self.settings.numHolesY}"],
+                ["Hole size", dims.mm(self.settings.holeSize)],
+                ["Hole depth", dims.mm(self.settings.holeDepth)],
+                ["Hole spacing", dims.mm(self.settings.keepoutDiameter)],
+            ]},
+        ]
+
     def generate_stl(self, filename):
         model = self.generate_model()
-        exporters.export(model, filename)
+        export_model(model, filename)
 
 

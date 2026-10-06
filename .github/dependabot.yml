@@ -1,0 +1,17 @@
+# Proposes updates for what is pinned: the Python packages (requirements*.txt), the base image
+# (Dockerfile) and the actions CI uses. CadQuery is the exception: conda and the CI "test" job pin it
+# in the Dockerfile and in ci.yml, and a test checks that the two agree, so bump them together.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

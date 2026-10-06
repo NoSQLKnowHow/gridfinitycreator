@@ -4,6 +4,8 @@ import classicbin_generator as generator
 import classicbin_form as form
 import classicbin_settings as settings
 import grid_constants
+from generators.common.tmpfiles import get_tmp_dir
+import model_builder
 
 import uuid
 import os
@@ -11,11 +13,9 @@ import logging
 
 logger = logging.getLogger('CBG')
 
-def process(form, constants):
+def make_settings(form):
     # Copy the settings from the form
     s = settings.Settings()
-    
-    # Copy the settings from the form
     s.sizeUnitsX = form.sizeUnitsX.data
     s.sizeUnitsY = form.sizeUnitsY.data
     s.sizeUnitsZ = form.sizeUnitsZ.data
@@ -29,6 +29,16 @@ def process(form, constants):
     s.addGrabCurve = form.addGrabCurve.data
     s.addLabelRidge = form.addLabelRidge.data
     s.multiLabel = form.multiLabel.data
+    s.removedWalls = form.removedWalls.data or ""
+    return s
+
+def dimensions(form, constants):
+    g = constants if constants else grid_constants.Grid()
+    gen = generator.Generator(make_settings(form), g)
+    return gen.get_dimensions()
+
+def process(form, constants):
+    s = make_settings(form)
 
     # Default grid (Gridfinity)
     if not constants:
@@ -37,11 +47,13 @@ def process(form, constants):
         g = constants
 
     # Construct the names for the temporary and downloaded file
-    filename = "/tmpfiles/" + str(uuid.uuid4()) + "." + form.exportFormat.data
+    filename = os.path.join(get_tmp_dir(), str(uuid.uuid4()) + "." + form.exportFormat.data)
 
     # Generate the STL file
-    gen = generator.Generator(s, g)
-    gen.generate_stl(filename)
+    # Check the settings here (cheap, and a refusal needs no process), then build the model
+    # in a separate process so the web server stays responsive while it works
+    generator.Generator(s, g)
+    model_builder.build(__name__, s, g, filename)
 
     # Delete the temp file after it was downloaded
     @after_this_request
