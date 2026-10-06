@@ -205,6 +205,7 @@ def test_keyboard_users_can_skip_to_the_content(page):
     assert first_link["attrs"]["href"] == "#main"
     assert "visually-hidden-focusable" in first_link["attrs"]["class"].split()
     assert page.by_id()["main"]["tag"] == "main"
+    assert page.by_id()["main"]["attrs"].get("tabindex") == "-1"   # or focus stays on the link in some browsers
 
 
 def test_headings_never_skip_a_level(page):

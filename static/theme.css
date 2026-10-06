@@ -212,6 +212,10 @@ body::after {
   gap: 0.5rem;
 }
 
+main:focus {
+  outline: none; /* focus lands here from the skip link; it is not a control */
+}
+
 .gfg-footer {
   color: var(--gfg-text-muted);
 }
