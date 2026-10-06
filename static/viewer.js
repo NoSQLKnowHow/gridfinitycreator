@@ -544,8 +544,21 @@ function activateViewer(formId) {
   return viewers[formId];
 }
 
+// One tracker per form and kind of request, so that a newer request for a form
+// supersedes an older one instead of racing it (see latest_request.js)
+const previewRequests = {};
+const dimensionRequests = {};
+
+function latestRequestFor(trackers, formId) {
+  if (!trackers[formId]) trackers[formId] = GfgLatest.createLatestRequest();
+  return trackers[formId];
+}
+
 /** Tear a viewer down, freeing its WebGL context */
 function teardownViewer(formId) {
+  // A preview still on its way has nowhere to be drawn any more
+  latestRequestFor(previewRequests, formId).cancel();
+
   const viewer = viewers[formId];
   if (!viewer) return;
   viewer.dispose();
@@ -589,8 +602,11 @@ async function updateDimensions(formId) {
   formData.append('dimensions', 'true');
   formData.append(formId, 'Generate');
 
+  // Only the answer to the newest question may touch the panel
+  const request = latestRequestFor(dimensionRequests, formId).begin();
+
   try {
-    const response = await fetch('/', { method: 'POST', body: formData });
+    const response = await fetch('/', { method: 'POST', body: formData, signal: request.signal });
     if (!response.ok) {
       // The server explains why it refused these settings ({"errors": [...]}) -
       // show that here rather than leaving a stale readout on screen
@@ -601,14 +617,14 @@ async function updateDimensions(formId) {
       } catch (e) {
         // not a JSON response; nothing useful to show
       }
-      if (messages.length) {
+      if (messages.length && request.isCurrent()) {
         panel.innerHTML = `<div class="text-danger small">${messages.map(escapeHtml).join('<br>')}</div>`;
       }
       return;
     }
 
     const sections = await response.json();
-    if (!Array.isArray(sections)) return;
+    if (!request.isCurrent() || !Array.isArray(sections)) return;
 
     panel.innerHTML = sections.map(section => `
       <div class="gfg-dims-section">
@@ -622,6 +638,7 @@ async function updateDimensions(formId) {
       </div>
     `).join('');
   } catch (e) {
+    if (GfgLatest.isAbort(e)) return; // superseded by a newer request
     console.warn('Dimensions update failed:', e);
   }
 }
@@ -655,16 +672,25 @@ async function generatePreview(formId) {
     // ignore if set unsupported in some browsers
   }
 
+  // A build takes seconds, long enough for the form to change again. The answers do not
+  // necessarily come back in order, and an old one drawn last would leave a model that
+  // no longer matches the form - so only the newest request may draw, and only into the
+  // viewer it was made for (which may have been switched off or replaced meanwhile).
+  const request = latestRequestFor(previewRequests, formId).begin();
+  const stillWanted = () => request.isCurrent() && viewers[formId] === viewer;
+
   try {
     console.log(`Generating preview for ${formId}...`);
     const response = await fetch('/', {
       method: 'POST',
-      body: formData
+      body: formData,
+      signal: request.signal
     });
 
     if (response.ok) {
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
+      if (!stillWanted()) return;
       const previewHeader = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(arrayBuffer, 0, Math.min(256, arrayBuffer.byteLength)));
 
       if (/<\/?html|<!doctype|<body|<title|error|exception/i.test(previewHeader)) {
@@ -684,11 +710,13 @@ async function generatePreview(formId) {
       console.error('Preview generation failed:', response.status, response.statusText, errorText.slice(0, 500));
     }
   } catch (error) {
+    if (GfgLatest.isAbort(error)) return; // superseded by a newer request, or the preview was switched off
     console.error('Preview generation error:', error);
   } finally {
     // Reveal the model once it is actually on screen; if nothing loaded, put
-    // the invitation back so the user can retry rather than face a blank panel
-    setPlaceholderState(formId, viewer.model ? 'hidden' : 'idle');
+    // the invitation back so the user can retry rather than face a blank panel.
+    // A superseded request leaves that to the one that replaced it.
+    if (stillWanted()) setPlaceholderState(formId, viewer.model ? 'hidden' : 'idle');
   }
 }
 

@@ -25,10 +25,11 @@ def test_javascript_unit_tests_pass():
     assert "# pass 0" not in result.stdout  # it really ran tests
 
 
-def test_the_validation_script_loads_before_the_library_that_uses_it(client):
+def test_helper_scripts_load_before_the_scripts_that_use_them(client):
     html = client.get("/").get_data(as_text=True)
 
     assert html.index("/static/safe_config.js") < html.index("/static/library.js")
+    assert html.index("/static/latest_request.js") < html.index("/static/viewer.js")
 
 
 def test_the_library_never_builds_inline_event_handlers():
