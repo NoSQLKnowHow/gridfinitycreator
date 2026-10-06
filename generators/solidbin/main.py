@@ -5,6 +5,7 @@ import solidbin_form as form
 import solidbin_settings as settings
 import grid_constants
 from generators.common.tmpfiles import get_tmp_dir
+import model_builder
 
 import uuid
 import os
@@ -46,8 +47,10 @@ def process(form, constants):
     filename = os.path.join(get_tmp_dir(), str(uuid.uuid4()) + "." + form.exportFormat.data)
 
     # Generate the STL file
-    gen = generator.Generator(s, g)
-    gen.generate_stl(filename)
+    # Check the settings here (cheap, and a refusal needs no process), then build the model
+    # in a separate process so the web server stays responsive while it works
+    generator.Generator(s, g)
+    model_builder.build(__name__, s, g, filename)
 
     # Delete the temp file after it was downloaded
     @after_this_request

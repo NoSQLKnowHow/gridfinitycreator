@@ -5,6 +5,7 @@ import generators.holeybin.holeybin_form as form
 import generators.holeybin.holeybin_settings as settings
 import grid_constants
 from generators.common.tmpfiles import get_tmp_dir
+import model_builder
 
 import uuid
 import os
@@ -56,8 +57,10 @@ def process(form, constants):
     logger.info(s)
 
     # Generate the STL file
-    gen = generator.Generator(s, g)
-    gen.generate_stl(filename)
+    # Check the settings here (cheap, and a refusal needs no process), then build the model
+    # in a separate process so the web server stays responsive while it works
+    generator.Generator(s, g)
+    model_builder.build(__name__, s, g, filename)
 
     logger.debug("Generating completed")
 

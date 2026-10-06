@@ -1,14 +1,10 @@
 import datetime
-import importlib
-import importlib.machinery
-import importlib.util
 import logging
 import logging.handlers
 import os
 import sys
+import threading
 import waitress
-
-from contextlib import contextmanager
 
 from flask import Flask, jsonify, make_response, request
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
@@ -17,6 +13,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import grid_constants
 import gridspec
+import job_limiter
+import model_builder
+from generator_loader import load_generators
 from generators.common.errors import SettingsError
 from grid_constants import *
 from version import __version__
@@ -42,9 +41,8 @@ generators = []
 # works when imported by tests or another WSGI runner, instead of failing on a None logger
 logger = logging.getLogger('GFG')
 
-# Constants
-GEN_FOLDER = "./generators"
-MAIN_MODULE = "main.py"
+# Bounds how many models are built at once (see job_limiter.py for the settings)
+limiter = job_limiter.JobLimiter.from_env()
 
 def inner_render(value, context):
     return Template(value).render(context)
@@ -84,10 +82,16 @@ def is_background_request():
        3D preview; those expect JSON or an STL back, not a whole HTML page"""
     return request.form.get('dimensions') == 'true' or request.form.get('preview') == 'true'
 
-def error_response(errors, status, form_list, constants, active_form=''):
+def error_response(errors, status, form_list, constants, active_form='', headers=None):
     if is_background_request():
-        return jsonify({"errors": errors}), status
-    return make_response(render_index(form_list, constants, errors, active_form), status)
+        response = jsonify({"errors": errors})
+        response.status_code = status
+    else:
+        response = make_response(render_index(form_list, constants, errors, active_form), status)
+
+    for name, value in (headers or {}).items():
+        response.headers[name] = value
+    return response
 
 @app.errorhandler(Exception)
 def unexpected_error(e):
@@ -155,7 +159,9 @@ def generate(gen, f, constants):
     # Generate an STL with the provided settings
     is_preview = 'preview' in request.form and request.form['preview'] == 'true'
     logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))
-    response = gen.process(f, constants)
+    # Building the model is the expensive step: take a turn, or be told the server is busy
+    with limiter.slot():
+        response = gen.process(f, constants)
 
     # If this is a preview request, modify the response to return binary data instead of download
     if is_preview:
@@ -171,6 +177,7 @@ def index_post():
     constants = current_grid()
 
     errors = []
+    status = 422  # how the request is answered if it ends in errors
     active_form = ''
 
     # If the request is from the form that specifies the grid size, override these values
@@ -202,62 +209,24 @@ def index_post():
             return generate(gen, f, constants)
         except SettingsError as e:
             errors = [str(e)]
+        except model_builder.BuildTimeout as e:
+            logger.warning("A %s build was stopped: %s", f.get_title(), e)
+            errors = [str(e)]
+        except model_builder.BuildFailed as e:
+            logger.error("Building a %s failed: %s\n%s", f.get_title(), e, e.details)
+            errors, status = [UNEXPECTED_ERROR_MESSAGE], 500
+        except job_limiter.ServerBusy as e:
+            logger.warning("Busy: turned away a %s request (%d building, %d waiting)", f.get_title(), limiter.running, limiter.waiting)
+            return error_response([str(e)], 503, form_list, constants, active_form, headers={'Retry-After': '5'})
 
     # Nothing was generated: say why, on the tab the user was working in
     if errors:
-        return error_response(errors, 422, form_list, constants, active_form)
+        return error_response(errors, status, form_list, constants, active_form)
 
     response = make_response(render_index(form_list, constants))
     if saving_grid:
         set_gridspec_cookie(response, constants)
     return response
-
-# From this StackOverflow answer: https://stackoverflow.com/a/41904558
-@contextmanager
-def add_to_path(p):
-    import sys
-    old_path = sys.path
-    sys.path = sys.path[:]
-    sys.path.insert(0, p)
-    try:
-        yield
-    finally:
-        sys.path = old_path
-
-def load_generators():
-    """Scan for generators and load any generators found """
-
-    generators = []
-    
-    # Each generator is contained in its own subdir 
-    possible_generators = sorted(os.listdir(GEN_FOLDER))
-    for entry in possible_generators:
-        location = os.path.join(GEN_FOLDER, entry)
-
-        # It should be a dir and contain the 
-        if not os.path.isdir(location) or not MAIN_MODULE in os.listdir(location):
-            continue
-
-        logger.debug("Loading generator {0}".format(entry))
-        fname = "{0}/{1}".format(location, MAIN_MODULE)
-
-        # Temporarily expand the search path for modules, so the (sub-)modules needed
-        # by each generator can be found
-        try:
-            with add_to_path(location):
-                # importlib magic. Loads the module and makes it available to call
-                spec = importlib.util.spec_from_loader(
-                    entry,
-                    importlib.machinery.SourceFileLoader(entry, fname)
-                )
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                sys.modules[entry] = module
-                generators.append(module)
-        except Exception as e:
-            logger.error(f"Failed to load generator {entry}: {e}")
-
-    return generators
 
 class serverFilter():
     """Filter records coming from the server out of the access log"""
@@ -306,10 +275,13 @@ if __name__ == "__main__":
         logger.error(f"Failed to load generators: {e}")
         sys.exit(1)
 
+    # Load CadQuery into the model builder in the background, so the first build is quick
+    threading.Thread(target=model_builder.warm_up, daemon=True).start()
+
     if debugMode:
         logger.info("Started in debug mode")
         port = int(os.environ.get('PORT', portNum))
         app.run(debug=True, host='0.0.0.0', port=port)
     else:
         logger.info("Started in production mode")
-        waitress.serve(app, listen='*:' + str(portNum), threads=6)
+        waitress.serve(app, listen='*:' + str(portNum), threads=job_limiter.server_threads(limiter))
