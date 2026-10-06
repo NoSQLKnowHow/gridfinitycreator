@@ -237,6 +237,26 @@ body::after {
   transform: translateY(0);
 }
 
+/* Reminder that a grid other than the Gridfinity standard is in use */
+.gfg-grid-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--gfg-accent-rgb), 0.6);
+  background: rgba(var(--gfg-accent-rgb), 0.12);
+  color: var(--gfg-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gfg-grid-badge:hover {
+  background: rgba(var(--gfg-accent-rgb), 0.2);
+}
+
 /* Theme toggle icon swap */
 .theme-toggle .icon-moon {
   display: none;

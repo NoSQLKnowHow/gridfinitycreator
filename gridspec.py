@@ -23,6 +23,23 @@ LIMITS = (
 )
 
 
+# The grids the Advanced settings offer as presets: (name, grid size X, grid size Y, height unit) in mm.
+# The first is the standard, the one nothing needs pointing out for.
+PRESETS = (
+    ("Gridfinity", 42.0, 42.0, 7.0),
+    ("Raaco", 39.5, 54.5, 7.0),
+)
+CUSTOM = "Custom"
+
+
+def preset_name(x, y, z):
+    """The name of the preset that is exactly this grid, or "Custom" when there is none"""
+    for name, preset_x, preset_y, preset_z in PRESETS:
+        if all(math.isclose(a, b, abs_tol=1e-9) for a, b in ((x, preset_x), (y, preset_y), (z, preset_z))):
+            return name
+    return CUSTOM
+
+
 class GridSpecError(ValueError):
     """A grid value is missing, not a number, or outside the supported range.
        The message is written to be shown to the user."""

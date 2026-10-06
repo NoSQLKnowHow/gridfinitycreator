@@ -34,6 +34,10 @@
         aria-controls="settings" title="Grid settings">
         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/></svg>
       </button>
+      {% if not grid_is_standard %}
+      <button class="gfg-grid-badge" type="button" data-bs-toggle="offcanvas" data-bs-target="#settings"
+        aria-controls="settings" title="A grid other than the Gridfinity standard is in use. Click to change it.">{{ grid_preset }} grid · {{ grid.GRID_UNIT_SIZE_X_MM|mm }} × {{ grid.GRID_UNIT_SIZE_Y_MM|mm }} × {{ grid.HEIGHT_UNITSIZE_MM|mm }} mm</button>
+      {% endif %}
     </div>
   </header>
 
@@ -75,7 +79,7 @@
       <div id="about-{{form.id}}" class="collapse">
         <div class="row px-3 pb-3 pt-2">
           <div class="col-9">
-            {{ form.get_description()|safe }}
+            {{ form.get_description() | inner_render({"grid": grid}) | safe }}
           </div>
           <div class="col">
             <img src="/static/{{form.id}}_sample.jpg" class="img-fluid rounded mx-auto d-block" />
@@ -102,7 +106,7 @@
             <div class="card-body">
               <form method="post" id="{{form.id}}_form" onchange="debouncePreview('{{form.id}}')">
                 {{ form.csrf_token() }}
-                {{ form.get_settings_html() | inner_render({"form":form}) }}
+                {{ form.get_settings_html() | inner_render({"form": form, "grid": grid}) }}
               </form>
             </div>
           </div>
@@ -273,20 +277,14 @@
     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
   }
 
+  // Fill the grid fields from the chosen preset. The numbers live in gridspec.PRESETS and
+  // arrive as data attributes; "Custom" carries none and leaves the fields alone.
   function presetChanged() {
-    var presetName = document.getElementById("grid-presets").value;
-    switch (presetName) {
-      case "Gridfinity":
-        document.getElementById("gridSizeX").value = "42.0";
-        document.getElementById("gridSizeY").value = "42.0";
-        document.getElementById("gridSizeZ").value = "7.0";
-        break;
-      case "Raaco":
-        document.getElementById("gridSizeX").value = "39.5";
-        document.getElementById("gridSizeY").value = "54.5";
-        document.getElementById("gridSizeZ").value = "7.0";
-        break;
-    }
+    const option = document.querySelector("#grid-presets option:checked");
+    if (!option || option.dataset.x === undefined) return;
+    document.getElementById("gridSizeX").value = option.dataset.x;
+    document.getElementById("gridSizeY").value = option.dataset.y;
+    document.getElementById("gridSizeZ").value = option.dataset.z;
   }
 
 </script>

@@ -20,8 +20,12 @@
         <hr />
         <h5>Presets</h5>
         <select class="form-select" id="grid-presets" onchange="presetChanged()">
-            <option value="Gridfinity" selected>Gridfinity</option>
-            <option value="Raaco">Raaco</option>
+            {% for name, preset_x, preset_y, preset_z in grid_presets %}
+            <option value="{{ name }}" data-x="{{ preset_x|mm }}" data-y="{{ preset_y|mm }}" data-z="{{ preset_z|mm }}"{% if name == grid_preset %} selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+            {% if grid_preset == "Custom" %}
+            <option value="Custom" selected>Custom</option>
+            {% endif %}
         </select>
         <p id="demo"></p>
         <hr />

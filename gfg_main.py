@@ -8,7 +8,7 @@ import threading
 import waitress
 
 from flask import Flask, jsonify, make_response, request
-from jinja2 import Environment, FileSystemLoader, StrictUndefined, Template
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -54,19 +54,51 @@ logger = logging.getLogger('GFG')
 # Bounds how many models are built at once (see job_limiter.py for the settings)
 limiter = job_limiter.JobLimiter.from_env()
 
-def inner_render(value, context):
-    return Template(value).render(context)
+def format_mm(value):
+    """A length without a pointless ".0": 42.0 -> "42", 39.5 -> "39.5" """
+    return f"{value:g}"
+
+def grid_pitch(grid):
+    """The grid size as help text puts it, e.g. "42mm for Width and Length, 7mm for Height" """
+    if grid.GRID_UNIT_SIZE_X_MM == grid.GRID_UNIT_SIZE_Y_MM:
+        size = f"{format_mm(grid.GRID_UNIT_SIZE_X_MM)}mm for Width and Length"
+    else:
+        size = f"{format_mm(grid.GRID_UNIT_SIZE_X_MM)}mm for Width and {format_mm(grid.GRID_UNIT_SIZE_Y_MM)}mm for Length"
+    return f"{size}, {format_mm(grid.HEIGHT_UNITSIZE_MM)}mm for Height"
+
+def grid_cell(grid):
+    """The footprint of one grid unit, e.g. "42mm" or "39.5mm by 54.5mm" """
+    if grid.GRID_UNIT_SIZE_X_MM == grid.GRID_UNIT_SIZE_Y_MM:
+        return f"{format_mm(grid.GRID_UNIT_SIZE_X_MM)}mm"
+    return f"{format_mm(grid.GRID_UNIT_SIZE_X_MM)}mm by {format_mm(grid.GRID_UNIT_SIZE_Y_MM)}mm"
 
 def render_index(form_list, constants, errors=(), active_form=''):
     """Render the page. errors are messages to show the user; active_form is the id of
        the generator tab to open (the one that was just submitted), or '' for Home."""
     jinja_env = Environment(loader=FileSystemLoader(["./", os.path.realpath(__file__)]), undefined=StrictUndefined)
-    jinja_env.filters["inner_render"] = inner_render
+
+    # Fragments (a generator's settings form, its descriptions and help texts) are rendered by
+    # a second environment with the same filters and the given variables, so that they can quote
+    # the grid in use. It is the plain, lenient kind these fragments have always been rendered
+    # with: the settings form probes attributes some widgets do not have. All of them are local files.
+    fragment_env = Environment()
+
+    def inner_render(value, context):
+        return fragment_env.from_string(value or '').render(context)
+
+    for environment in (jinja_env, fragment_env):
+        environment.filters["inner_render"] = inner_render
+        environment.filters["mm"] = format_mm
+        environment.filters["grid_pitch"] = grid_pitch
+        environment.filters["grid_cell"] = grid_cell
+    preset = gridspec.preset_name(constants.GRID_UNIT_SIZE_X_MM, constants.GRID_UNIT_SIZE_Y_MM, constants.HEIGHT_UNITSIZE_MM)
 
     index_template = jinja_env.get_template("templates/index.html.j2")
     # Resolved per request so the copyright never goes stale
     return index_template.render(version=__version__, forms=form_list, errors=list(errors), active_form=active_form,
                             year=datetime.date.today().year,
+                            grid=constants, grid_presets=gridspec.PRESETS, grid_preset=preset,
+                            grid_is_standard=(preset == gridspec.PRESETS[0][0]),
                             gridsize_x=constants.GRID_UNIT_SIZE_X_MM,
                             gridsize_y=constants.GRID_UNIT_SIZE_Y_MM, gridsize_z=constants.HEIGHT_UNITSIZE_MM)
 
