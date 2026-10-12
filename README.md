@@ -62,12 +62,22 @@ Everything has a default that works for a small private network, so none of this
 | `GFG_MAX_DIVIDER_SEGMENTS` | `300` | Largest divider-bin layout allowed, in divider wall segments (about 12 x 12 compartments) |
 | `GFG_MAX_LIGHT_DIVIDER_SEGMENTS` | `150` | The same limit for the light bin, which does more work per segment |
 | `GFG_MAX_HOLES` | `600` | Most holes a holey bin may have |
+| `GFG_TRUSTED_PROXIES` | none | Reverse proxies whose `X-Forwarded-For`, `-Proto` and `-Host` headers are believed: addresses or networks, separated by commas (for example `172.18.0.0/16`). Leave it empty when visitors connect directly. See [Reverse proxy](#reverse-proxy) |
+| `GFG_PROXY_HOPS` | `1` | How many proxies a request passes through before it reaches the server (only matters with `GFG_TRUSTED_PROXIES`) |
+| `GFG_HSTS_MAX_AGE` | none | Seconds for which browsers are told to insist on https for this host (`Strict-Transport-Security`). Not sent unless set, and only over https. See [Security](#security) |
+| `GFG_LOG_CLIENT_IP` | `true` | Set to `false` (or `0`, `no`, `off`) to leave visitors' addresses out of the log. See [Security](#security) |
 
 If you expose an instance to the internet, lower the limits (`GFG_MAX_QUEUE`, `GFG_QUEUE_TIMEOUT`, `GFG_BUILD_TIMEOUT` and the three `GFG_MAX_*` limits) so one visitor cannot keep the server busy for long.
 
 ### Security
 
 The container runs as an ordinary user (uid 1000) on a read-only filesystem with no extra privileges and no Linux capabilities. It writes only to two size-limited RAM disks (`/tmpfiles` for the generated files and `/tmp`) and to the `/logs` volume. The compose files set this up, and CI starts the image exactly like that and uses it.
+
+Every response carries security headers. The main one is a Content-Security-Policy that lets the page run scripts and load styles, fonts, images and data from the server itself only, so a script that got into the page by mistake would not be run. That is why the page has no inline scripts or styles, and why anything from another host (a font, an analytics script, an embed) does not load until the policy in `security_headers.py` is widened for it. The other headers keep the page from being framed, stop browsers guessing file types, and switch off camera, microphone and location access.
+
+`Strict-Transport-Security` is not sent by default: a browser that has been told keeps refusing plain http for the host until the time is up, which locks you out of an instance whose https is not working yet, or one that is only meant for a private network. To send it, set `GFG_HSTS_MAX_AGE` to a number of seconds (for example `15552000`, 180 days). It is only sent over https, and behind a reverse proxy only when `GFG_TRUSTED_PROXIES` is set, so that the server knows the visitor used https. If your proxy already sends it, leave the setting alone.
+
+The server keeps one log, `access.log` in the log directory, which rotates (the current file and ten older ones, up to 1 MB each) so it never grows beyond about 11 MB. It records every model that is generated, with the visitor's address. Where addresses count as personal data, set `GFG_LOG_CLIENT_IP=false` and the log records `-` instead. Behind a reverse proxy the address is the visitor's only if `GFG_TRUSTED_PROXIES` is set (see [Reverse proxy](#reverse-proxy)).
 
 ### Resource needs
 
@@ -106,6 +116,10 @@ CI (`.github/workflows/ci.yml`) lints for real bugs (`ruff.toml`), runs the test
 ## Reverse proxy
 
 Because I use Traefik myself I included the Traefik labels I use in the docker-compose file. If you want to use Traefik, uncomment them and comment out the "ports" section. You will also need to fill in your domain in the .env.container file. 
+
+A proxy that ends the visitor's HTTPS connection tells the server who the visitor was and that they used https in `X-Forwarded-*` headers. The server believes those headers only from the proxies you name in `GFG_TRUSTED_PROXIES`: anyone who can reach the server directly can send the same headers, and would otherwise be able to choose the address that ends up in the log. Headers from any other peer are discarded, and `X-Forwarded-Prefix` is never used (the server does not run under a path prefix). Without the setting the server sees the proxy's address, logs it for every visitor, and does not mark its cookies `Secure`.
+
+Name the proxy by its address, or by the network it is on (`docker network inspect proxy` shows the subnet of the `proxy` network the compose file uses, for example `GFG_TRUSTED_PROXIES=172.18.0.0/16`). With a chain of proxies (a CDN in front of Traefik, say), list the one that talks to the server and set `GFG_PROXY_HOPS` to the length of the chain. A typo in either setting stops the server from starting, with the reason in `docker logs`.
 
 I have no experience with other reverse proxy methods (Apache, nginx, Helm, etc), so if anyone creates instructions for setting up GridfinityCreator with any of those I'd happily accept the pull-request.
 

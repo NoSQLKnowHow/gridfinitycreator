@@ -12,12 +12,13 @@ import waitress
 from flask import Flask, jsonify, make_response, request
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from werkzeug.exceptions import HTTPException
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 import grid_constants
 import gridspec
 import job_limiter
 import model_builder
+import proxy_trust
+import security_headers
 from generator_loader import load_generators
 from generators.common import settings_form
 from generators.common.errors import SettingsError
@@ -42,10 +43,9 @@ app.config['SECRET_KEY'] = secret_key()
 # only ever made a page that had been left open fail to submit
 app.config['WTF_CSRF_TIME_LIMIT'] = None
 
-# Apply proxy fix
-app.wsgi_app = ProxyFix(
-    app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
-)
+# X-Forwarded-* headers are believed only from the proxies named in GFG_TRUSTED_PROXIES (see proxy_trust.py)
+trusted_proxies = proxy_trust.parse_proxies(os.environ.get('GFG_TRUSTED_PROXIES'))
+app.wsgi_app = proxy_trust.ProxyTrust(app.wsgi_app, trusted_proxies, proxy_trust.parse_hops(os.environ.get('GFG_PROXY_HOPS')))
 
 # Globals
 generators = []
@@ -56,6 +56,13 @@ logger = logging.getLogger('GFG')
 
 # Bounds how many models are built at once (see job_limiter.py for the settings)
 limiter = job_limiter.JobLimiter.from_env()
+
+# How long browsers are told to insist on https for this host; nothing unless asked (see security_headers.py)
+HSTS_MAX_AGE = security_headers.parse_hsts_max_age(os.environ.get('GFG_HSTS_MAX_AGE'))
+
+@app.after_request
+def add_security_headers(response):
+    return security_headers.apply(response, request.is_secure, HSTS_MAX_AGE)
 
 # What the page sends with a submit so that it can tell when the answer has arrived (generate_feedback.js)
 DOWNLOAD_TOKEN = re.compile(r'[A-Za-z0-9_-]{8,64}')
@@ -213,6 +220,13 @@ def index_get():
 
     return response
 
+def client_address_for_log(environ=os.environ):
+    """The visitor's address as it goes into the log; "-" when GFG_LOG_CLIENT_IP says not to keep it
+       (set it to false, 0, no or off). Addresses are personal data in some places."""
+    if environ.get('GFG_LOG_CLIENT_IP', 'true').strip().lower() in ('false', '0', 'no', 'off'):
+        return '-'
+    return request.remote_addr
+
 def generate(gen, f, constants):
     """Act on a form that passed validation: return the dimensions readout, a preview
        STL, or the file to download"""
@@ -223,7 +237,7 @@ def generate(gen, f, constants):
 
     # Generate an STL with the provided settings
     is_preview = 'preview' in request.form and request.form['preview'] == 'true'
-    logger.info("Generating {0} for: {1}{2}".format(f.get_title(), request.remote_addr, " (preview)" if is_preview else ""))
+    logger.info("Generating {0} for: {1}{2}".format(f.get_title(), client_address_for_log(), " (preview)" if is_preview else ""))
     # Building the model is the expensive step: take a turn, or be told the server is busy.
     # Waitress can say whether the client is still connected (Flask's own server cannot);
     # a client that has gone, e.g. a preview the page replaced with a newer one, is not
@@ -389,4 +403,4 @@ if __name__ == "__main__":
         app.run(debug=True, host=host, port=port)
     else:
         logger.info("Started in production mode, listening on %s:%s", host, port)
-        waitress.serve(app, host=host, port=port, **job_limiter.server_options(limiter))
+        waitress.serve(app, host=host, port=port, **job_limiter.server_options(limiter), **proxy_trust.server_options(trusted_proxies))

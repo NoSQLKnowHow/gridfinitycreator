@@ -46,15 +46,8 @@
 {% endif %}
 <div class="row justify-content-center">
     <div class="col text-center">
-        <button type="submit" id="{{form.id}}_button" name="{{form.id}}" class="btn btn-primary"> <!-- onclick="onClick{{form.id}}()"> -->
+        <button type="submit" id="{{form.id}}_button" name="{{form.id}}" class="btn btn-primary">
             <span>Generate</span>
         </button>
-        <!-- <input class="btn btn-primary"  type="submit" value="Generate"> -->
     </div>
 </div>
-
-<!-- <script type="text/javascript">
-function onClick{{form.id}}() {
-    document.getElementById("{{form.id}}_button").innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span role="status"> Generating...</span>'
-}
-</script> -->

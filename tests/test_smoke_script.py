@@ -11,6 +11,7 @@ import pytest
 import waitress
 
 import gfg_main
+import security_headers
 from conftest import REPO
 
 SCRIPT = os.path.join(REPO, "tools", "smoke_test.py")
@@ -35,7 +36,7 @@ def test_every_check_passes_against_a_working_server(server):
 
     assert result.returncode == 0, result.stdout + result.stderr
     for check in ("the home page", "a static file", "the dimensions readout", "a preview", "a download (STL)",
-                  "a download (3MF)", "a refused request"):
+                  "a download (3MF)", "a refused request", "the security headers"):
         assert f"ok    {check}" in result.stdout, result.stdout
 
 
@@ -54,3 +55,13 @@ def test_it_fails_when_a_check_fails(server, monkeypatch):
 
     assert result.returncode != 0
     assert "FAIL" in result.stdout
+
+
+def test_it_notices_a_server_that_sends_no_security_headers(server, monkeypatch):
+    monkeypatch.setattr(security_headers, "HEADERS", {})
+
+    result = run(server)
+
+    assert result.returncode != 0
+    assert "FAIL  the security headers" in result.stdout
+    assert "ok    the home page" in result.stdout

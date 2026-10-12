@@ -6,14 +6,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <!-- Apply the saved theme before first paint, defaulting to light, to avoid a flash of the wrong theme -->
-        <script>
-            (function () {
-                var stored = null;
-                try { stored = localStorage.getItem('gfg-theme'); } catch (e) { /* ignore */ }
-                document.documentElement.setAttribute('data-bs-theme', stored === 'dark' ? 'dark' : 'light');
-            })();
-        </script>
+        <!-- Apply the saved theme before first paint, defaulting to light, to avoid a flash of the wrong theme.
+             A blocking script on purpose; it is a file because the Content-Security-Policy allows no inline scripts -->
+        <script src="/static/theme_init.js"></script>
 
         <!-- Everything is served from /static/vendor: no third-party hosts (see static/vendor/README.md) -->
         <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
@@ -40,6 +35,9 @@
         <script src=/static/tabs.js></script>
         <script src=/static/generate_feedback.js></script>
         <script src=/static/layout_editor.js></script>
+        <script src=/static/holeybin_form.js></script>
+        <script src=/static/previews.js></script>
+        <script src=/static/page.js></script>
         {% block scripts %}{% endblock %}
     </body>
 </html>

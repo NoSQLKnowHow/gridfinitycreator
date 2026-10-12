@@ -300,4 +300,5 @@ def test_the_production_server_is_started_with_those_options():
     with open(os.path.join(REPO, "gfg_main.py"), encoding="utf-8") as handle:
         source = handle.read()
 
-    assert "waitress.serve(app, host=host, port=port, **job_limiter.server_options(limiter))" in source
+    [call] = [line for line in source.splitlines() if "waitress.serve(" in line]
+    assert "**job_limiter.server_options(limiter)" in call
